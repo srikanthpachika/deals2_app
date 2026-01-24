@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { scrapeOG } from '@/utils/scrape';
-import { normalizeAmazonProductUrl } from '@/lib/dealFilters';
+import {
+  normalizeAmazonProductUrl,
+  normalizeDealDescription,
+  normalizeDealTitle,
+} from '@/lib/dealFilters';
 
 export async function POST(req: Request) {
   const token = req.headers.get('x-admin-token');
@@ -10,5 +14,12 @@ export async function POST(req: Request) {
   const normalizedUrl = normalizeAmazonProductUrl(url);
   if (!normalizedUrl) return new NextResponse('Amazon product URL required', { status: 400 });
   const data = await scrapeOG(normalizedUrl);
-  return NextResponse.json({ ...data, url: normalizedUrl });
+  const normalized = normalizeDealTitle(data.title || "", data.description || "");
+  const description = normalizeDealDescription(data.description || "", normalized.extras);
+  return NextResponse.json({
+    ...data,
+    title: normalized.title,
+    description,
+    url: normalizedUrl,
+  });
 }

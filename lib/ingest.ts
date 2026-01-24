@@ -9,6 +9,8 @@ import {
   extractAmazonUrl,
   extractPrice,
   isHttpUrl,
+  normalizeDealDescription,
+  normalizeDealTitle,
   normalizeAmazonProductUrl,
   normalizeTitle,
   scoreDeal,
@@ -167,6 +169,18 @@ export async function ingestFeeds(
         } catch {
           report.notes.push(`Scrape failed: ${url}`);
         }
+      }
+
+      if (!title) {
+        report.skipped += 1;
+        continue;
+      }
+
+      const normalized = normalizeDealTitle(title, description);
+      title = normalized.title;
+      description = normalizeDealDescription(description, normalized.extras) || "";
+      if (description) {
+        description = trimText(description, 280);
       }
 
       if (!title) {

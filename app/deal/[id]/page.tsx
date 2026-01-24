@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { normalizeAmazonProductUrl } from "@/lib/dealFilters";
+import {
+  normalizeAmazonProductUrl,
+  normalizeDealDescription,
+  normalizeDealTitle,
+  withAmazonAffiliateTag,
+} from "@/lib/dealFilters";
 import { getDealCreatedAtCutoff } from "@/lib/dealExpiry";
 import { getDealCategory } from "@/lib/dealCategories";
 import AdSlot from "@/components/AdSlot";
@@ -34,7 +39,13 @@ export default async function DealPage({ params }: { params: { id: string } }) {
     );
   }
 
-  const category = getDealCategory(deal.title, deal.description);
+  const normalized = normalizeDealTitle(deal.title, deal.description);
+  const displayDescription = normalizeDealDescription(
+    deal.description,
+    normalized.extras
+  );
+  const affiliateUrl = withAmazonAffiliateTag(deal.url);
+  const category = getDealCategory(normalized.title, displayDescription);
 
   return (
     <div className="page">
@@ -43,13 +54,13 @@ export default async function DealPage({ params }: { params: { id: string } }) {
           <Link href="/" className="link-back">
             Back to deals
           </Link>
-          <h1 className="page-title">{deal.title}</h1>
+          <h1 className="page-title">{normalized.title}</h1>
           {deal.source ? (
             <p className="page-subtitle">Source: {deal.source}</p>
           ) : null}
         </div>
         <a
-          href={deal.url}
+          href={affiliateUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="btn btn--primary"
@@ -68,7 +79,7 @@ export default async function DealPage({ params }: { params: { id: string } }) {
         </div>
         <div className="deal-detail__content">
           <p className="lead">
-            {deal.description || "No description provided yet."}
+            {displayDescription || "No description provided yet."}
           </p>
           <div className="deal-detail__meta">
             <span
@@ -82,7 +93,7 @@ export default async function DealPage({ params }: { params: { id: string } }) {
           </div>
           <div className="form-actions">
             <a
-              href={deal.url}
+              href={affiliateUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn--primary"

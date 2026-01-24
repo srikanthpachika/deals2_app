@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { normalizeAmazonProductUrl } from '@/lib/dealFilters';
+import {
+  normalizeAmazonProductUrl,
+  normalizeDealDescription,
+  normalizeDealTitle,
+  withAmazonAffiliateTag,
+} from '@/lib/dealFilters';
 import { getDealCreatedAtCutoff, getDealExpiresAt } from '@/lib/dealExpiry';
 import { maybeIngestFeeds } from '@/lib/autoIngest';
 import { getDailyLimit } from '@/lib/ingestConfig';
@@ -25,7 +30,17 @@ export async function GET() {
     },
     orderBy: { createdAt: 'desc' },
   });
-  return NextResponse.json(items);
+  const payload = items.map((item) => {
+    const normalized = normalizeDealTitle(item.title, item.description);
+    const description = normalizeDealDescription(item.description, normalized.extras);
+    return {
+      ...item,
+      title: normalized.title,
+      description,
+      url: withAmazonAffiliateTag(item.url),
+    };
+  });
+  return NextResponse.json(payload);
 }
 
 export async function POST(req: Request) {
@@ -35,6 +50,8 @@ export async function POST(req: Request) {
   const { title, url, price, image, description, source } = await req.json();
   const normalizedUrl = normalizeAmazonProductUrl(url);
   if (!normalizedUrl) return new NextResponse('Amazon product URL required', { status: 400 });
+  const normalized = normalizeDealTitle(title, description);
+  const normalizedDescription = normalizeDealDescription(description, normalized.extras);
 
   // Enforce < 50 deals per day
   const today = new Date();
@@ -56,11 +73,11 @@ export async function POST(req: Request) {
   try {
     const created = await prisma.deal.create({
       data: {
-        title,
+        title: normalized.title,
         url: normalizedUrl,
         price,
         image,
-        description,
+        description: normalizedDescription || null,
         source: source || 'amazon.com',
         approved: true,
         expiresAt: getDealExpiresAt(),

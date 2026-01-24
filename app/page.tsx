@@ -5,11 +5,12 @@ import Link from "next/link";
 import { getDealCreatedAtCutoff } from "@/lib/dealExpiry";
 import { maybeIngestFeeds } from "@/lib/autoIngest";
 import { DEAL_CATEGORIES, getDealCategory } from "@/lib/dealCategories";
+import { normalizeDealDescription, normalizeDealTitle } from "@/lib/dealFilters";
 
 export const revalidate = 20;
 
-const MAX_DEALS = 600;
-const CATEGORY_DEALS_LIMIT = 24;
+const MAX_DEALS = 1000;
+const CATEGORY_DEALS_LIMIT = 36;
 
 export default async function Home() {
   await maybeIngestFeeds();
@@ -29,9 +30,13 @@ export default async function Home() {
   });
 
   const dealsWithCategory = deals.map((deal) => {
-    const category = getDealCategory(deal.title, deal.description);
+    const normalized = normalizeDealTitle(deal.title, deal.description);
+    const description = normalizeDealDescription(deal.description, normalized.extras);
+    const category = getDealCategory(normalized.title, description);
     return {
       ...deal,
+      title: normalized.title,
+      description,
       createdAt: deal.createdAt.toISOString(),
       categoryId: category.id,
       categoryLabel: category.label,

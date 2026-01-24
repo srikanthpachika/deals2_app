@@ -1,5 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
+import {
+  normalizeDealDescription,
+  normalizeDealTitle,
+  withAmazonAffiliateTag,
+} from "@/lib/dealFilters";
 
 export interface DealProps {
   id: number;
@@ -26,6 +31,12 @@ export default function DealCard({
   const delay = Math.min(index, 8) * 70;
   const cardClassName =
     variant === "compact" ? "deal-card deal-card--compact" : "deal-card";
+  const normalized = normalizeDealTitle(deal.title, deal.description);
+  const displayDescription = normalizeDealDescription(
+    deal.description,
+    normalized.extras
+  );
+  const affiliateUrl = withAmazonAffiliateTag(deal.url);
 
   return (
     <article
@@ -47,10 +58,10 @@ export default function DealCard({
       </div>
       <div className="deal-card__content">
         <h3 className="deal-card__title">
-          <Link href={`/deal/${deal.id}`}>{deal.title}</Link>
+          <Link href={`/deal/${deal.id}`}>{normalized.title}</Link>
         </h3>
-        {deal.description ? (
-          <p className="deal-card__desc">{deal.description}</p>
+        {displayDescription ? (
+          <p className="deal-card__desc">{displayDescription}</p>
         ) : (
           <p className="deal-card__desc muted">No description yet.</p>
         )}
@@ -68,7 +79,7 @@ export default function DealCard({
         </div>
         <div className="deal-card__footer">
           <a
-            href={deal.url}
+            href={affiliateUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="btn btn--primary"
