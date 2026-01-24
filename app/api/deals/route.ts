@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { normalizeAmazonProductUrl } from '@/lib/dealFilters';
+import { getDealCreatedAtCutoff, getDealExpiresAt } from '@/lib/dealExpiry';
+import { maybeIngestFeeds } from '@/lib/autoIngest';
+import { getDailyLimit } from '@/lib/ingestConfig';
 
 function isToday(d: Date) {
   const now = new Date();
@@ -7,7 +11,20 @@ function isToday(d: Date) {
 }
 
 export async function GET() {
-  const items = await prisma.deal.findMany({ where: { approved: true }, orderBy: { createdAt: 'desc' } });
+  await maybeIngestFeeds();
+  const now = new Date();
+  const cutoff = getDealCreatedAtCutoff(now);
+  const items = await prisma.deal.findMany({
+    where: {
+      approved: true,
+      url: { startsWith: 'https://www.amazon.com/dp/' },
+      OR: [
+        { expiresAt: { gt: now } },
+        { createdAt: { gte: cutoff } },
+      ],
+    },
+    orderBy: { createdAt: 'desc' },
+  });
   return NextResponse.json(items);
 }
 
@@ -16,6 +33,8 @@ export async function POST(req: Request) {
   if (!token || token !== process.env.ADMIN_TOKEN) return new NextResponse('Forbidden', { status: 403 });
 
   const { title, url, price, image, description, source } = await req.json();
+  const normalizedUrl = normalizeAmazonProductUrl(url);
+  if (!normalizedUrl) return new NextResponse('Amazon product URL required', { status: 400 });
 
   // Enforce < 50 deals per day
   const today = new Date();
@@ -23,14 +42,28 @@ export async function POST(req: Request) {
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
 
-  const countToday = await prisma.deal.count({ where: { createdAt: { gte: today, lt: tomorrow } } });
-  if (countToday >= 50) return new NextResponse('Daily limit reached', { status: 409 });
+  const countToday = await prisma.deal.count({
+    where: {
+      createdAt: { gte: today, lt: tomorrow },
+      url: { startsWith: 'https://www.amazon.com/dp/' },
+    },
+  });
+  const dailyLimit = getDailyLimit();
+  if (dailyLimit !== null && countToday >= dailyLimit) {
+    return new NextResponse('Daily limit reached', { status: 409 });
+  }
 
   try {
     const created = await prisma.deal.create({
       data: {
-        title, url, price, image, description, source,
+        title,
+        url: normalizedUrl,
+        price,
+        image,
+        description,
+        source: source || 'amazon.com',
         approved: true,
+        expiresAt: getDealExpiresAt(),
       }
     });
     return NextResponse.json(created);

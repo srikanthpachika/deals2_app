@@ -22,13 +22,13 @@ export default function BottomStickyAd() {
   }, []);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white/95 border-t border-gray-200">
-      <div className="max-w-md mx-auto py-1 flex justify-center">
+    <div className="ad-sticky">
+      <div className="ad-sticky__inner">
         <ins
           className="adsbygoogle"
           style={{ display: "block" }}
           data-ad-client={process.env.NEXT_PUBLIC_ADSENSE_CLIENT}
-          data-ad-slot="8909564330"  // <-- replace with real slot
+          data-ad-slot="8909564330"
           data-ad-format="auto"
           data-full-width-responsive="true"
         />

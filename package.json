@@ -1,5 +1,5 @@
 {
-  "name": "deals2beat",
+  "name": "deals2pro",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,22 +9,25 @@
     "postinstall": "prisma generate",
     "prisma:studio": "prisma studio",
     "prisma:migrate": "prisma migrate dev",
-    "seed": "node --loader ts-node/esm scripts/seed.ts"
+    "seed": "node --loader ts-node/esm scripts/seed.ts",
+    "ingest": "tsx scripts/ingestFeeds.ts",
+    "ingest:watch": "tsx scripts/ingestWatch.ts"
   },
   "dependencies": {
     "@prisma/client": "5.19.1",
     "next": "14.2.13",
+    "node-html-parser": "6.1.11",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "zod": "3.23.8",
-    "node-html-parser": "6.1.11"
+    "zod": "3.23.8"
   },
   "devDependencies": {
-    "prisma": "5.19.1",
-    "typescript": "5.6.3",
     "@types/node": "20.12.12",
     "@types/react": "18.2.66",
     "@types/react-dom": "18.2.22",
-    "ts-node": "10.9.2"
+    "prisma": "5.19.1",
+    "ts-node": "10.9.2",
+    "typescript": "5.6.3",
+    "tsx": "4.7.0"
   }
 }

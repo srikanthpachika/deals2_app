@@ -9,14 +9,14 @@ export default function InFeedAd() {
   }, []);
 
   return (
-    <div className="my-6 flex justify-center">
+    <div className="ad-frame">
       <ins
         className="adsbygoogle"
         style={{ display: "block" }}
         data-ad-client={process.env.NEXT_PUBLIC_ADSENSE_CLIENT}
-        data-ad-slot="3523050871"   // TODO: replace with your Ad Slot ID
+        data-ad-slot="3523050871"
         data-ad-format="fluid"
-        data-ad-layout-key="-fb+5w+4e-db+86" // can adjust in AdSense
+        data-ad-layout-key="-fb+5w+4e-db+86"
         data-full-width-responsive="true"
       ></ins>
     </div>

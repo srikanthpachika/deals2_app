@@ -1,11 +1,23 @@
-// app/layout.tsx
 import type { Metadata } from "next";
+import { Fraunces, Manrope } from "next/font/google";
 import "./globals.css";
-import BottomStickyAd from "@/components/ads/BottomStickyAd"; // we'll create this
+import BottomStickyAd from "@/components/ads/BottomStickyAd";
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  variable: "--font-display",
+});
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-body",
+});
 
 export const metadata: Metadata = {
-  title: "Deals2Beat",
-  description: "Best Deals & Discounts",
+  title: "Deals2Pro",
+  description: "Calm, curated Amazon deals updated throughout the day.",
 };
 
 export default function RootLayout({
@@ -14,20 +26,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${fraunces.variable} ${manrope.variable}`}>
       <head>
-        {/* Global AdSense script */}
         <script
           async
           src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_ADSENSE_CLIENT}`}
           crossOrigin="anonymous"
         ></script>
       </head>
-      <body>
-        {/* If you have a Navbar component, it would be here */}
-        {children}
-
-        {/* Bottom sticky mobile ad */}
+      <body className="app-shell">
+        <main className="app-content">{children}</main>
         <BottomStickyAd />
       </body>
     </html>
