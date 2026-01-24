@@ -1,4 +1,4 @@
-# Deals2Pro - MVP
+# Deal2Pro - MVP
 
 Curated Amazon-only deals site with < 50 deals/day, simple admin import, and AdSense placeholders.
 
@@ -7,7 +7,7 @@ Curated Amazon-only deals site with < 50 deals/day, simple admin import, and AdS
 ```bash
 pnpm i # or npm i / yarn
 cp .env.example .env
-# set DATABASE_URL (file:./dev.db for local), ADMIN_TOKEN and NEXT_PUBLIC_ADSENSE_CLIENT
+# set DATABASE_URL (Postgres URL), ADMIN_TOKEN and NEXT_PUBLIC_ADSENSE_CLIENT
 npx prisma migrate dev --name init
 npm run dev
 ```
@@ -36,11 +36,12 @@ This project ships with an AdSense `<ins>` component. Replace `NEXT_PUBLIC_ADSEN
 
 - Import the repo into Vercel.
 - Set environment variables: `DATABASE_URL` (use a Postgres URL for production), `ADMIN_TOKEN`, `NEXT_PUBLIC_ADSENSE_CLIENT`.
+- `npm run build` runs `prisma migrate deploy`, so ensure the DB user can run migrations.
 - Add a cron to pull or insert deals if needed (Vercel Cron hitting `/api/ingest` if you add one).
 
 ## Notes
 
-- DB: Prisma + SQLite (simple). Switch to Postgres for production.
+- DB: Prisma + Postgres.
 - Scraper is minimal (Open Graph). For better imports, add affiliate APIs (Amazon PA API, CJ, Rakuten), RSS, or custom parsers.
 - Consider rate limits and robots.txt before crawling sites.
 - Add moderation, categories, tags, search, and user voting in next iterations.

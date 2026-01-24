@@ -16,7 +16,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Deals2Pro",
+  title: "Deal2Pro",
   description: "Calm, curated Amazon deals updated throughout the day.",
 };
 

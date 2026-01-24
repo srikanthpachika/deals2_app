@@ -1,15 +1,17 @@
 -- CreateTable
 CREATE TABLE "Deal" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "id" SERIAL NOT NULL,
     "title" TEXT NOT NULL,
     "url" TEXT NOT NULL,
     "source" TEXT,
     "price" TEXT,
     "image" TEXT,
     "description" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "expiresAt" DATETIME,
-    "approved" BOOLEAN NOT NULL DEFAULT false
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expiresAt" TIMESTAMP(3),
+    "approved" BOOLEAN NOT NULL DEFAULT false,
+
+    CONSTRAINT "Deal_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex

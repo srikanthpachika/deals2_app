@@ -74,7 +74,7 @@ export default async function Home() {
             <div className="brand__mark">D2P</div>
             <div>
               <p className="eyebrow">Curated daily</p>
-              <h1 className="brand__title">Deals2Pro</h1>
+              <h1 className="brand__title">Deal2Pro</h1>
               <p className="brand__tagline">
                 A calmer way to browse Amazon deals.
               </p>
