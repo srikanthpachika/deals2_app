@@ -8,6 +8,9 @@ import { DEAL_CATEGORIES, getDealCategory } from "@/lib/dealCategories";
 
 export const revalidate = 20;
 
+const MAX_DEALS = 600;
+const CATEGORY_DEALS_LIMIT = 24;
+
 export default async function Home() {
   await maybeIngestFeeds();
   const now = new Date();
@@ -22,7 +25,7 @@ export default async function Home() {
       ],
     },
     orderBy: { createdAt: "desc" },
-    take: 240,
+    take: MAX_DEALS,
   });
 
   const dealsWithCategory = deals.map((deal) => {
@@ -59,6 +62,8 @@ export default async function Home() {
         day: "numeric",
         hour: "numeric",
         minute: "2-digit",
+        timeZone: "America/New_York",
+        timeZoneName: "short",
       }).format(latestDealAt)
     : "No recent updates";
   const cadenceMinutes = Number(process.env.INGEST_INTERVAL_MINUTES || "10");
@@ -73,7 +78,7 @@ export default async function Home() {
           <div className="brand">
             <div className="brand__mark">D2P</div>
             <div>
-              <p className="eyebrow">Curated daily</p>
+              <p className="eyebrow">Curated daily drops</p>
               <h1 className="brand__title">Deal2Pro</h1>
               <p className="brand__tagline">
                 A calmer way to browse Amazon deals.
@@ -114,12 +119,11 @@ export default async function Home() {
         <div className="hero__copy">
           <p className="eyebrow">Live drops</p>
           <h2>
-            A clean, spacious library of Amazon price drops, sorted for easy
-            browsing.
+            A clean, spacious library of Amazon price drops for easy browsing.
           </h2>
           <p className="lead">
-            We scan multiple sources, normalize Amazon links, and keep your feed
-            calm, fresh, and organized by category.
+            We scan multiple sources, normalize Amazon links, and keep the feed
+            calm, fresh, and neatly categorized.
           </p>
           <div className="hero__actions">
             <a className="btn btn--primary" href="#all-deals">
@@ -128,16 +132,15 @@ export default async function Home() {
             <a className="btn btn--soft" href="#category-sections">
               Explore categories
             </a>
-            <span className="pill">Updating every {cadenceLabel}</span>
+            <span className="pill">Refreshes every {cadenceLabel}</span>
           </div>
         </div>
         <div className="hero__panel">
           <div className="panel-card panel-card--newsletter">
             <p className="eyebrow">Stay in the loop</p>
-            <h3 className="panel-title">Get the best drops first.</h3>
+            <h3 className="panel-title">Get the best drops first</h3>
             <p className="panel-subtitle">
-              A calm, curated feed of the newest Amazon discounts, delivered in
-              minutes.
+              A calm, curated feed of new Amazon discounts, delivered in minutes.
             </p>
             <div className="panel-form">
               <label className="label" htmlFor="newsletter-email">
@@ -206,7 +209,7 @@ export default async function Home() {
           </div>
         ) : (
           <div className="deal-grid deal-grid--featured">
-            {dealsWithCategory.slice(0, 24).map((deal, index) => (
+            {dealsWithCategory.map((deal, index) => (
               <DealCard
                 key={deal.id}
                 deal={deal}
@@ -239,7 +242,7 @@ export default async function Home() {
             </div>
           </div>
           <div className="deal-grid">
-            {section.deals.slice(0, 12).map((deal, index) => (
+            {section.deals.slice(0, CATEGORY_DEALS_LIMIT).map((deal, index) => (
               <DealCard
                 key={deal.id}
                 deal={deal}
@@ -266,7 +269,7 @@ export default async function Home() {
             </div>
           </div>
           <div className="deal-grid">
-            {otherSection.deals.slice(0, 12).map((deal, index) => (
+            {otherSection.deals.slice(0, CATEGORY_DEALS_LIMIT).map((deal, index) => (
               <DealCard
                 key={deal.id}
                 deal={deal}
