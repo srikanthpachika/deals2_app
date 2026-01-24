@@ -21,8 +21,8 @@ const DEFAULT_MAX_RESOLVE = 15;
 let inFlight: Promise<void> | null = null;
 let lastRunAtMs = 0;
 
-function parseBoolean(value: string | undefined): boolean {
-  if (!value) return false;
+function parseBoolean(value: string | undefined, fallback = false): boolean {
+  if (value === undefined) return fallback;
   return value === "1" || value.toLowerCase() === "true";
 }
 
@@ -35,7 +35,7 @@ function parseNumber(value: string | undefined, fallback: number): number {
 
 function getConfig(): AutoIngestConfig {
   return {
-    enabled: parseBoolean(process.env.AUTO_INGEST_ON_REQUEST),
+    enabled: parseBoolean(process.env.AUTO_INGEST_ON_REQUEST, true),
     staleMinutes: parseNumber(process.env.AUTO_INGEST_STALE_MINUTES, DEFAULT_STALE_MINUTES),
     cooldownMinutes: parseNumber(
       process.env.AUTO_INGEST_COOLDOWN_MINUTES,

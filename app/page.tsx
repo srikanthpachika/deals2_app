@@ -7,7 +7,7 @@ import { maybeIngestFeeds } from "@/lib/autoIngest";
 import { DEAL_CATEGORIES, getDealCategory } from "@/lib/dealCategories";
 import { normalizeDealDescription, normalizeDealTitle } from "@/lib/dealFilters";
 
-export const revalidate = 20;
+export const revalidate = 600;
 
 const MAX_DEALS = 1000;
 const CATEGORY_DEALS_LIMIT = 36;
