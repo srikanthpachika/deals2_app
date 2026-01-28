@@ -33,6 +33,30 @@ export const FEED_SOURCES: FeedSource[] = [
     url: "https://slickdeals.net/newsearch.php?searchin=first&sort=newest&rss=1&q=amazon+grocery",
   },
   {
+    name: "Slickdeals (Amazon sports)",
+    url: "https://slickdeals.net/newsearch.php?searchin=first&sort=newest&rss=1&q=amazon+fitness",
+  },
+  {
+    name: "Slickdeals (Amazon office)",
+    url: "https://slickdeals.net/newsearch.php?searchin=first&sort=newest&rss=1&q=amazon+office",
+  },
+  {
+    name: "Slickdeals (Amazon auto)",
+    url: "https://slickdeals.net/newsearch.php?searchin=first&sort=newest&rss=1&q=amazon+auto",
+  },
+  {
+    name: "Slickdeals (Amazon tools)",
+    url: "https://slickdeals.net/newsearch.php?searchin=first&sort=newest&rss=1&q=amazon+tools",
+  },
+  {
+    name: "Slickdeals (Amazon pet)",
+    url: "https://slickdeals.net/newsearch.php?searchin=first&sort=newest&rss=1&q=amazon+pet",
+  },
+  {
+    name: "Slickdeals (Amazon baby)",
+    url: "https://slickdeals.net/newsearch.php?searchin=first&sort=newest&rss=1&q=amazon+baby",
+  },
+  {
     name: "Slickdeals (Amazon toys)",
     url: "https://slickdeals.net/newsearch.php?searchin=first&sort=newest&rss=1&q=amazon+toys",
   },

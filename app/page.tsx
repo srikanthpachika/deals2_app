@@ -6,6 +6,7 @@ import { getDealCreatedAtCutoff } from "@/lib/dealExpiry";
 import { maybeIngestFeeds } from "@/lib/autoIngest";
 import { DEAL_CATEGORIES, getDealCategory } from "@/lib/dealCategories";
 import { normalizeDealDescription, normalizeDealTitle } from "@/lib/dealFilters";
+import { CONTENT_POSTS } from "@/lib/content";
 
 export const revalidate = 600;
 
@@ -285,6 +286,36 @@ export default async function Home() {
           </div>
         </section>
       ) : null}
+
+      <section className="content-section">
+        <div className="section-header">
+          <div>
+            <h3 className="section-title">Articles, guides & reviews</h3>
+            <p className="section-subtitle">
+              Clean, opinionated reads for smarter Amazon shopping.
+            </p>
+          </div>
+          <div className="section-actions">
+            <a className="btn btn--link" href="/articles">
+              View all
+            </a>
+          </div>
+        </div>
+        <div className="content-card-grid">
+          {CONTENT_POSTS.map((post) => (
+            <article key={post.href} className="content-card">
+              <div>
+                <p className="content-card__type">{post.type}</p>
+                <h3 className="content-card__title">{post.title}</h3>
+                <p className="content-card__desc">{post.description}</p>
+              </div>
+              <Link href={post.href} className="btn btn--primary">
+                Read more
+              </Link>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <div className="ad-frame">
         <AdSlot slot="8909564330" />

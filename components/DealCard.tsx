@@ -47,7 +47,7 @@ export default function DealCard({
         {deal.image ? (
           <Image
             src={deal.image}
-            alt={deal.title}
+            alt={normalized.title}
             fill
             sizes="(max-width: 720px) 100vw, 140px"
             className="deal-card__image"
@@ -66,6 +66,9 @@ export default function DealCard({
           <p className="deal-card__desc muted">No description yet.</p>
         )}
         <div className="deal-card__meta">
+          {normalized.percentOff !== null ? (
+            <span className="tag tag--percent">{normalized.percentOff}% off</span>
+          ) : null}
           {deal.price ? <span className="tag tag--price">{deal.price}</span> : null}
           {deal.categoryLabel ? (
             <span

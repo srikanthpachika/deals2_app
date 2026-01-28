@@ -9,8 +9,34 @@ const DEAL_KEYWORDS = [
   "promo",
   "markdown",
   "price drop",
+  "price cut",
+  "price slash",
+  "lowest price",
+  "best price",
+  "flash sale",
+  "lightning deal",
+  "limited time",
+  "deal of the day",
+  "hot deal",
+  "sale",
+  "bundle",
+  "doorbuster",
+  "prime day",
+  "black friday",
+  "cyber monday",
+  "open box",
+  "open-box",
+  "refurbished",
+  "warehouse",
 ];
-const FREE_KEYWORDS = ["free", "bogo", "buy one get one"];
+const FREE_KEYWORDS = [
+  "free",
+  "bogo",
+  "buy one get one",
+  "buy 1 get 1",
+  "2 for 1",
+  "free shipping",
+];
 const AMAZON_DOMAINS = ["amazon.com"];
 const AMAZON_LINK_REGEX =
   /https?:\/\/(?:www\.)?(?:amazon\.com|amzn\.to|a\.co)\/[^\s"'<>]+/i;
@@ -268,33 +294,51 @@ function looksLikeExtra(value: string): boolean {
 function extractPercentOff(text: string): number | null {
   const explicit = extractPercent(text);
   if (explicit) return explicit;
-  const prices = extractPriceValues(text);
-  if (prices.length >= 2) {
-    const max = Math.max(...prices);
-    const min = Math.min(...prices);
-    if (max > 0 && min > 0 && max > min) {
-      const percent = Math.round(((max - min) / max) * 100);
-      if (Number.isFinite(percent) && percent > 0 && percent < 100) return percent;
-    }
+  const wasNow = extractWasNowPrices(text);
+  if (wasNow) {
+    const percent = Math.round(((wasNow.original - wasNow.current) / wasNow.original) * 100);
+    if (Number.isFinite(percent) && percent > 0 && percent < 100) return percent;
   }
   const savings = extractSavingsValue(text);
-  if (savings && prices.length >= 1) {
-    const current = Math.min(...prices);
-    if (current > 0) {
-      const percent = Math.round((savings / (savings + current)) * 100);
-      if (Number.isFinite(percent) && percent > 0 && percent < 100) return percent;
+  const current = extractCurrentPrice(text);
+  if (savings && current && current > 0) {
+    const percent = Math.round((savings / (savings + current)) * 100);
+    if (Number.isFinite(percent) && percent > 0 && percent < 100) return percent;
+  }
+  return null;
+}
+
+function extractWasNowPrices(text: string): { original: number; current: number } | null {
+  if (!text) return null;
+  const patterns: RegExp[] = [
+    /was\s*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)\s*(?:now|for|only)?\s*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
+    /down\s+from\s*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)\s*(?:to|now|for)?\s*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
+    /from\s*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)\s*(?:to|down to|now)?\s*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
+    /list\s+price\s*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?).*?\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
+    /msrp\s*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?).*?\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (!match) continue;
+    const original = Number(match[1].replace(/[^0-9.]/g, ""));
+    const current = Number(match[2].replace(/[^0-9.]/g, ""));
+    if (!Number.isFinite(original) || !Number.isFinite(current)) continue;
+    if (original > current && original > 0 && current > 0) {
+      return { original, current };
     }
   }
   return null;
 }
 
-function extractPriceValues(text: string): number[] {
-  if (!text) return [];
-  const matches = text.match(/\$[0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?/g) || [];
-  const values = matches
-    .map((match) => Number(match.replace(/[^0-9.]/g, "")))
-    .filter((value) => Number.isFinite(value) && value > 0);
-  return Array.from(new Set(values));
+function extractCurrentPrice(text: string): number | null {
+  if (!text) return null;
+  const match =
+    text.match(/(?:now|for|only|just|at)\s*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i) ||
+    text.match(/\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/);
+  if (!match) return null;
+  const value = Number(match[1].replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return value;
 }
 
 function extractSavingsValue(text: string): number | null {

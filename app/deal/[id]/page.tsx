@@ -72,7 +72,7 @@ export default async function DealPage({ params }: { params: { id: string } }) {
       <section className="deal-detail">
         <div className="deal-detail__media">
           {deal.image ? (
-            <img src={deal.image} alt={deal.title} />
+            <img src={deal.image} alt={normalized.title} />
           ) : (
             <div className="deal-card__placeholder">No image</div>
           )}
@@ -88,6 +88,9 @@ export default async function DealPage({ params }: { params: { id: string } }) {
             >
               {category.label}
             </span>
+            {normalized.percentOff !== null ? (
+              <span className="tag tag--percent">{normalized.percentOff}% off</span>
+            ) : null}
             {deal.price ? <span className="tag tag--price">{deal.price}</span> : null}
             {deal.source ? <span className="tag">{deal.source}</span> : null}
           </div>

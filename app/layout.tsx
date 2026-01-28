@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
 import "./globals.css";
 import BottomStickyAd from "@/components/ads/BottomStickyAd";
+import SiteFooter from "@/components/SiteFooter";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -36,6 +37,7 @@ export default function RootLayout({
       </head>
       <body className="app-shell">
         <main className="app-content">{children}</main>
+        <SiteFooter />
         <BottomStickyAd />
       </body>
     </html>
