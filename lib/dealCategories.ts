@@ -12,16 +12,22 @@ export const DEAL_CATEGORIES: DealCategory[] = [
     description: "Headphones, TVs, computers, smart home, and accessories.",
     keywords: [
       "laptop",
+      "desktop",
+      "pc",
       "macbook",
       "chromebook",
       "monitor",
       "tv",
       "oled",
+      "roku",
+      "fire tv",
+      "streaming",
       "soundbar",
       "headphone",
       "headset",
       "earbud",
       "earphone",
+      "earbuds",
       "airpods",
       "speaker",
       "bluetooth",
@@ -30,14 +36,22 @@ export const DEAL_CATEGORIES: DealCategory[] = [
       "ssd",
       "nvme",
       "hard drive",
+      "external drive",
       "ram",
       "memory",
+      "motherboard",
+      "cpu",
       "keyboard",
       "mouse",
       "webcam",
+      "microphone",
       "usb",
+      "usb-c",
+      "usb c",
       "charger",
       "power bank",
+      "power strip",
+      "surge protector",
       "hdmi",
       "ethernet",
       "smartphone",
@@ -53,16 +67,19 @@ export const DEAL_CATEGORIES: DealCategory[] = [
       "ring",
       "smart",
       "camera",
+      "security",
       "projector",
       "gaming",
       "console",
       "playstation",
       "ps5",
       "xbox",
+      "nintendo",
       "switch",
       "gpu",
       "graphics card",
       "smartwatch",
+      "wearable",
     ],
   },
   {
@@ -82,6 +99,7 @@ export const DEAL_CATEGORIES: DealCategory[] = [
       "pajamas",
       "jeans",
       "pants",
+      "shorts",
       "legging",
       "dress",
       "skirt",
@@ -93,11 +111,14 @@ export const DEAL_CATEGORIES: DealCategory[] = [
       "sneaker",
       "boot",
       "sandal",
+      "slipper",
+      "loafer",
       "athletic",
       "apparel",
       "clothing",
       "hat",
       "cap",
+      "beanie",
       "men's",
       "women's",
       "kids",
@@ -115,11 +136,13 @@ export const DEAL_CATEGORIES: DealCategory[] = [
       "paper towel",
       "toilet paper",
       "trash bag",
+      "trash bags",
       "cleaner",
       "bleach",
       "disinfect",
       "mop",
       "vacuum",
+      "robot vacuum",
       "air purifier",
       "purifier",
       "humidifier",
@@ -148,10 +171,17 @@ export const DEAL_CATEGORIES: DealCategory[] = [
       "slow cooker",
       "pressure cooker",
       "instant pot",
+      "toaster",
+      "microwave",
+      "kettle",
+      "mixing",
+      "appliance",
       "bedding",
       "sheet",
+      "sheet set",
       "pillow",
       "blanket",
+      "comforter",
       "mattress",
       "sofa",
       "chair",
@@ -161,6 +191,8 @@ export const DEAL_CATEGORIES: DealCategory[] = [
       "bath",
       "towel",
       "curtain",
+      "rug",
+      "furniture",
     ],
   },
   {
@@ -182,10 +214,14 @@ export const DEAL_CATEGORIES: DealCategory[] = [
       "sunscreen",
       "vitamin",
       "supplement",
+      "multivitamin",
+      "probiotic",
       "protein",
+      "creatine",
       "makeup",
       "hair",
       "fragrance",
+      "wellness",
     ],
   },
   {
@@ -205,6 +241,12 @@ export const DEAL_CATEGORIES: DealCategory[] = [
       "k-cup",
       "sauce",
       "spice",
+      "condiment",
+      "olive oil",
+      "pasta",
+      "rice",
+      "candy",
+      "chocolate",
       "pantry",
       "beverage",
       "energy drink",
@@ -234,6 +276,30 @@ export const DEAL_CATEGORIES: DealCategory[] = [
       "tent",
       "sleeping bag",
       "backpack",
+      "cooler",
+      "kayak",
+      "fishing",
+    ],
+  },
+  {
+    id: "baby",
+    label: "Baby & Kids",
+    description: "Diapers, baby gear, and kid essentials.",
+    keywords: [
+      "baby",
+      "infant",
+      "toddler",
+      "diaper",
+      "diapers",
+      "wipes",
+      "formula",
+      "stroller",
+      "car seat",
+      "crib",
+      "bassinet",
+      "pacifier",
+      "onesie",
+      "kids",
     ],
   },
   {
@@ -245,11 +311,13 @@ export const DEAL_CATEGORIES: DealCategory[] = [
       "lego",
       "board game",
       "puzzle",
+      "game",
       "nerf",
       "barbie",
       "kids",
       "toddler",
       "playset",
+      "action figure",
     ],
   },
   {
@@ -265,7 +333,11 @@ export const DEAL_CATEGORIES: DealCategory[] = [
       "paper",
       "printer",
       "ink",
+      "toner",
       "pen",
+      "pencil",
+      "marker",
+      "sticky note",
       "backpack",
       "calculator",
       "lamp",
@@ -281,6 +353,7 @@ export const DEAL_CATEGORIES: DealCategory[] = [
       "dash cam",
       "jumper",
       "battery",
+      "battery charger",
       "tire",
       "oil",
       "wiper",
@@ -288,6 +361,7 @@ export const DEAL_CATEGORIES: DealCategory[] = [
       "car charger",
       "tool",
       "drill",
+      "impact",
       "screwdriver",
       "socket",
       "wrench",
@@ -309,6 +383,7 @@ export const DEAL_CATEGORIES: DealCategory[] = [
       "kibble",
       "dog food",
       "cat food",
+      "pet food",
       "scratch",
     ],
   },
@@ -326,15 +401,35 @@ const CATEGORY_INDEX = new Map(
 
 export function getDealCategory(title: string, description?: string | null): DealCategory {
   const content = `${title} ${description || ""}`.toLowerCase();
+  let best: DealCategory | null = null;
+  let bestScore = 0;
   for (const category of DEAL_CATEGORIES) {
     if (category.id === "other") continue;
-    if (category.keywords.some((keyword) => content.includes(keyword))) {
-      return category;
+    const score = category.keywords.reduce((total, keyword) => {
+      return total + (keywordMatches(content, keyword) ? 1 : 0);
+    }, 0);
+    if (score > bestScore) {
+      bestScore = score;
+      best = category;
     }
   }
-  return CATEGORY_INDEX.get("other")!;
+  return bestScore > 0 && best ? best : CATEGORY_INDEX.get("other")!;
 }
 
 export function getCategoryById(id: string): DealCategory {
   return CATEGORY_INDEX.get(id) || CATEGORY_INDEX.get("other")!;
+}
+
+function keywordMatches(content: string, keyword: string): boolean {
+  if (!keyword) return false;
+  if (keyword.includes(" ")) return content.includes(keyword);
+  if (keyword.length <= 4) {
+    const pattern = new RegExp(`\\b${escapeRegExp(keyword)}\\b`, "i");
+    return pattern.test(content);
+  }
+  return content.includes(keyword);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

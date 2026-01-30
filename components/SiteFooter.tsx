@@ -15,11 +15,8 @@ export default function SiteFooter() {
         </div>
         <div className="site-footer__cols">
           <div className="site-footer__col">
-            <p className="site-footer__title">Discover</p>
-            <Link href="/articles">Articles</Link>
-            <Link href="/guides">Guides</Link>
-            <Link href="/blog">Blog</Link>
-            <Link href="/reviews">Reviews</Link>
+            <p className="site-footer__title">Marketing</p>
+            <Link href="/blog">Growth playbook</Link>
           </div>
           <div className="site-footer__col">
             <p className="site-footer__title">Company</p>

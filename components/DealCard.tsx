@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
+  getDisplayPrice,
   normalizeDealDescription,
   normalizeDealTitle,
   withAmazonAffiliateTag,
@@ -12,6 +13,7 @@ export interface DealProps {
   url: string;
   image?: string | null;
   price?: string | null;
+  percentOff?: number | null;
   source?: string | null;
   description?: string | null;
   createdAt: string;
@@ -36,6 +38,11 @@ export default function DealCard({
     deal.description,
     normalized.extras
   );
+  const displayPrice = getDisplayPrice(deal.title, deal.description, deal.price);
+  const displayPercent = deal.percentOff ?? null;
+  const displayTitle = displayPercent
+    ? `${normalized.title} - ${displayPercent}% off`
+    : normalized.title;
   const affiliateUrl = withAmazonAffiliateTag(deal.url);
 
   return (
@@ -58,7 +65,7 @@ export default function DealCard({
       </div>
       <div className="deal-card__content">
         <h3 className="deal-card__title">
-          <Link href={`/deal/${deal.id}`}>{normalized.title}</Link>
+          <Link href={`/deal/${deal.id}`}>{displayTitle}</Link>
         </h3>
         {displayDescription ? (
           <p className="deal-card__desc">{displayDescription}</p>
@@ -66,10 +73,12 @@ export default function DealCard({
           <p className="deal-card__desc muted">No description yet.</p>
         )}
         <div className="deal-card__meta">
-          {normalized.percentOff !== null ? (
-            <span className="tag tag--percent">{normalized.percentOff}% off</span>
+          {displayPercent !== null && displayPercent !== undefined ? (
+            <span className="tag tag--percent">{displayPercent}% off</span>
           ) : null}
-          {deal.price ? <span className="tag tag--price">{deal.price}</span> : null}
+          {displayPrice ? (
+            <span className="tag tag--price">{displayPrice}</span>
+          ) : null}
           {deal.categoryLabel ? (
             <span
               className="tag tag--category"

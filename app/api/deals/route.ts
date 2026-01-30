@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import {
+  getDisplayPrice,
   normalizeAmazonProductUrl,
   normalizeDealDescription,
   normalizeDealTitle,
@@ -33,10 +34,14 @@ export async function GET() {
   const payload = items.map((item) => {
     const normalized = normalizeDealTitle(item.title, item.description);
     const description = normalizeDealDescription(item.description, normalized.extras);
+    const displayPrice = getDisplayPrice(item.title, item.description, item.price);
+    const displayPercent = item.percentOff ?? null;
     return {
       ...item,
       title: normalized.title,
       description,
+      price: displayPrice,
+      percentOff: displayPercent,
       url: withAmazonAffiliateTag(item.url),
     };
   });
@@ -52,6 +57,7 @@ export async function POST(req: Request) {
   if (!normalizedUrl) return new NextResponse('Amazon product URL required', { status: 400 });
   const normalized = normalizeDealTitle(title, description);
   const normalizedDescription = normalizeDealDescription(description, normalized.extras);
+  const displayPrice = getDisplayPrice(title, description, price);
 
   // Enforce < 50 deals per day
   const today = new Date();
@@ -75,10 +81,11 @@ export async function POST(req: Request) {
       data: {
         title: normalized.title,
         url: normalizedUrl,
-        price,
+        price: displayPrice,
         image,
         description: normalizedDescription || null,
         source: source || 'amazon.com',
+        percentOff: null,
         approved: true,
         expiresAt: getDealExpiresAt(),
       }

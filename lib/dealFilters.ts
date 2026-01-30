@@ -6,24 +6,73 @@ const DEAL_KEYWORDS = [
   "discount",
   "clearance",
   "coupon",
+  "coupon code",
+  "clip coupon",
+  "promo code",
   "promo",
+  "extra savings",
+  "extra discount",
+  "stackable",
   "markdown",
   "price drop",
   "price cut",
   "price slash",
+  "price crash",
+  "price drop alert",
+  "price reduction",
+  "price decrease",
+  "marked down",
+  "mark down",
   "lowest price",
   "best price",
+  "all-time low",
+  "new low",
+  "record low",
   "flash sale",
   "lightning deal",
   "limited time",
   "deal of the day",
+  "exclusive",
+  "member deal",
   "hot deal",
   "sale",
   "bundle",
+  "bundle deal",
+  "bundle discount",
   "doorbuster",
+  "final sale",
+  "last chance",
+  "limited quantity",
   "prime day",
   "black friday",
   "cyber monday",
+  "holiday deal",
+  "today only",
+  "limited stock",
+  "price error",
+  "price mistake",
+  "steal",
+  "mega deal",
+  "blowout",
+  "clearout",
+  "special offer",
+  "special deal",
+  "limited offer",
+  "one day",
+  "today only",
+  "exclusive deal",
+  "member exclusive",
+  "subscribe & save",
+  "subscribe and save",
+  "s&s",
+  "prime exclusive",
+  "prime deal",
+  "instant savings",
+  "rebate",
+  "cashback",
+  "digital coupon",
+  "coupon applied",
+  "extra coupon",
   "open box",
   "open-box",
   "refurbished",
@@ -36,6 +85,9 @@ const FREE_KEYWORDS = [
   "buy 1 get 1",
   "2 for 1",
   "free shipping",
+  "free gift",
+  "freebie",
+  "free trial",
 ];
 const AMAZON_DOMAINS = ["amazon.com"];
 const AMAZON_LINK_REGEX =
@@ -44,6 +96,9 @@ const AFFILIATE_TAG = "deal2pro-20";
 
 const TITLE_PREFIXES = [
   "new price low",
+  "new low",
+  "price drop alert",
+  "price crash",
   "price drop",
   "deal alert",
   "hot deal",
@@ -52,6 +107,9 @@ const TITLE_PREFIXES = [
   "sale",
   "clearance",
   "markdown",
+  "today only",
+  "limited time",
+  "limited stock",
 ];
 
 const EXTRA_HINTS = [
@@ -66,9 +124,30 @@ const EXTRA_HINTS = [
   "only",
   "size",
   "sizes",
+  "oz",
+  "fl oz",
+  "lb",
+  "lbs",
+  "pack",
+  "pack of",
+  "count",
+  "ct",
+  "piece",
+  "pcs",
+  "inch",
+  "inches",
+  "ft",
+  "feet",
+  "gb",
+  "tb",
   "color",
   "colors",
+  "bundle",
+  "multi-pack",
+  "set",
+  "value pack",
 ];
+
 
 export function normalizeTitle(title: string): string {
   return sanitizeText(title);
@@ -81,19 +160,26 @@ export function trimText(text: string, max = 240): string {
 }
 
 export function extractPrice(text: string): string | null {
-  if (!text) return null;
-  const match = text.match(/\$\s?([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/);
-  if (!match) return null;
-  return `$${match[1]}`;
+  const value = extractBestPriceValue(text);
+  if (value === null) return null;
+  return formatPriceValue(value);
 }
 
-export function extractPercent(text: string): number | null {
-  if (!text) return null;
-  const match = text.match(/(\d{1,2})\s?%/);
-  if (!match) return null;
-  const value = Number(match[1]);
-  if (!Number.isFinite(value)) return null;
-  return value;
+export function getDisplayPrice(
+  title: string | null | undefined,
+  description?: string | null,
+  fallback?: string | null
+): string | null {
+  const combined = `${title ?? ""} ${description ?? ""}`.trim();
+  const fromText = extractPrice(combined);
+  if (fromText) return fromText;
+  if (fallback) {
+    const fromFallback = extractPrice(fallback);
+    if (fromFallback) return fromFallback;
+    const cleaned = sanitizeText(fallback);
+    if (cleaned.startsWith("$")) return cleaned;
+  }
+  return null;
 }
 
 export function scoreDeal(text: string): number {
@@ -102,11 +188,20 @@ export function scoreDeal(text: string): number {
 
   if (extractPrice(text)) score += 3;
 
-  const percent = extractPercent(text);
-  if (percent) score += Math.min(5, Math.floor(percent / 10));
+  const percent = extractDiscountPercent(text);
+  if (percent) score += 2 + Math.min(10, Math.floor(percent / 5));
 
   if (FREE_KEYWORDS.some((keyword) => content.includes(keyword))) score += 3;
   if (DEAL_KEYWORDS.some((keyword) => content.includes(keyword))) score += 1;
+
+  if (
+    content.includes("all-time low") ||
+    content.includes("record low") ||
+    content.includes("price error") ||
+    content.includes("price mistake")
+  ) {
+    score += 4;
+  }
 
   return score;
 }
@@ -228,6 +323,14 @@ export function normalizeDealTitle(
     working = working.replace(trailingAmazon[0], "");
   }
 
+  const trailingDealBits = working.match(
+    /\s+(?:with|after|when|w\/)\s+(?:prime|coupon|clip coupon|promo code|code|free shipping|shipping)\b.*$/i
+  );
+  if (trailingDealBits) {
+    extras.push(trailingDealBits[0].trim());
+    working = working.replace(trailingDealBits[0], "");
+  }
+
   const parenthetical = working.match(/^(.*)\(([^)]+)\)\s*$/);
   if (parenthetical && looksLikeExtra(parenthetical[2])) {
     extras.push(parenthetical[2]);
@@ -250,9 +353,11 @@ export function normalizeDealTitle(
   if (!normalized) {
     normalized = normalizeWhitespace(baseTitle);
   }
-
-  if (percentOff !== null) {
-    normalized = `${normalized} - ${percentOff}% off`;
+  if (looksBrokenTitle(normalized)) {
+    const fallback = extractTitleFromDescription(cleanedDescription);
+    if (fallback) {
+      normalized = fallback;
+    }
   }
 
   return { title: normalized, extras: uniqExtras(extras), percentOff };
@@ -292,18 +397,12 @@ function looksLikeExtra(value: string): boolean {
 }
 
 function extractPercentOff(text: string): number | null {
-  const explicit = extractPercent(text);
+  const explicit = extractDiscountPercent(text);
   if (explicit) return explicit;
   const wasNow = extractWasNowPrices(text);
   if (wasNow) {
     const percent = Math.round(((wasNow.original - wasNow.current) / wasNow.original) * 100);
-    if (Number.isFinite(percent) && percent > 0 && percent < 100) return percent;
-  }
-  const savings = extractSavingsValue(text);
-  const current = extractCurrentPrice(text);
-  if (savings && current && current > 0) {
-    const percent = Math.round((savings / (savings + current)) * 100);
-    if (Number.isFinite(percent) && percent > 0 && percent < 100) return percent;
+    if (Number.isFinite(percent) && percent >= 5 && percent < 100) return percent;
   }
   return null;
 }
@@ -331,25 +430,73 @@ function extractWasNowPrices(text: string): { original: number; current: number 
 }
 
 function extractCurrentPrice(text: string): number | null {
-  if (!text) return null;
-  const match =
-    text.match(/(?:now|for|only|just|at)\s*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i) ||
-    text.match(/\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/);
-  if (!match) return null;
-  const value = Number(match[1].replace(/[^0-9.]/g, ""));
-  if (!Number.isFinite(value) || value <= 0) return null;
-  return value;
+  return extractBestPriceValue(text);
 }
 
-function extractSavingsValue(text: string): number | null {
+function extractDiscountPercent(text: string): number | null {
   if (!text) return null;
-  const saveMatch = text.match(/save\s*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i);
-  const offMatch = text.match(/\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)\s*off/i);
-  const value = saveMatch?.[1] || offMatch?.[1];
-  if (!value) return null;
-  const parsed = Number(value.replace(/[^0-9.]/g, ""));
-  if (!Number.isFinite(parsed) || parsed <= 0) return null;
-  return parsed;
+
+  const patterns: RegExp[] = [
+    /(\d{1,2})\s?%\s*(?:off|discount|savings)\b/i,
+    /save\s*(\d{1,2})\s?%\b/i,
+    /(\d{1,2})\s?%\s*deal\b/i,
+    /(\d{1,2})\s?%\s*price\s*drop\b/i,
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (!match) continue;
+    const value = Number(match[1]);
+    if (!Number.isFinite(value)) continue;
+    if (value >= 5 && value < 100) return value;
+  }
+  return null;
+}
+
+function extractBestPriceValue(text: string): number | null {
+  if (!text) return null;
+
+  const wasNow = extractWasNowPrices(text);
+  if (wasNow) return wasNow.current;
+
+  const contextualPatterns: RegExp[] = [
+    /(?:now|for|only|just|at|down to|as low as|sale price|deal price|price)\s*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
+    /(?:after coupon|with coupon|clip coupon)\s*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
+  ];
+  for (const pattern of contextualPatterns) {
+    const match = text.match(pattern);
+    if (!match) continue;
+    const value = Number(match[1].replace(/[^0-9.]/g, ""));
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+
+  const candidates = extractPriceCandidates(text);
+  if (!candidates.length) return null;
+  return Math.min(...candidates);
+}
+
+function extractPriceCandidates(text: string): number[] {
+  const candidates: number[] = [];
+  if (!text) return candidates;
+  const lower = text.toLowerCase();
+  const regex = /\$\s?([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/g;
+  for (const match of lower.matchAll(regex)) {
+    const value = Number(match[1].replace(/[^0-9.]/g, ""));
+    if (!Number.isFinite(value) || value <= 0) continue;
+    const index = match.index ?? 0;
+    const before = lower.slice(Math.max(0, index - 16), index);
+    if (/(save|off|coupon|discount|rebate|credit|cashback|list|msrp)/.test(before)) {
+      continue;
+    }
+    candidates.push(value);
+  }
+  return candidates;
+}
+
+function formatPriceValue(value: number): string {
+  const rounded = Math.round(value * 100) / 100;
+  const cents = Math.round(rounded * 100) % 100;
+  const formatted = cents === 0 ? rounded.toFixed(0) : rounded.toFixed(2);
+  return `$${formatted}`;
 }
 
 function uniqExtras(values: string[]): string[] {
@@ -368,4 +515,36 @@ function uniqExtras(values: string[]): string[] {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function looksBrokenTitle(value: string): boolean {
+  if (!value) return true;
+  const cleaned = value.trim();
+  if (cleaned.length < 6) return true;
+  if (/^[\d\W]+$/.test(cleaned)) return true;
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  return words.length < 2;
+}
+
+function extractTitleFromDescription(description: string): string | null {
+  if (!description) return null;
+  let text = description;
+  text = text.replace(/^amazon(?:\.com)?\s+has\s+(?:the\s+)?/i, "");
+  text = text.replace(/^new price low\s*[:\\-]?\s*/i, "");
+  text = text.replace(/^deal alert\s*[:\\-]?\s*/i, "");
+  text = text.replace(/^limited time deal\s*[:\\-]?\s*/i, "");
+  text = text.replace(/\bfor\s+\$[0-9].*$/i, "");
+  text = text.replace(/\bnow\s+\$[0-9].*$/i, "");
+  text = text.replace(/\bdown to\s+\$[0-9].*$/i, "");
+  text = text.replace(/\bwith free shipping.*$/i, "");
+  text = text.replace(/\bon amazon(?:\.com)?\b.*$/i, "");
+  text = text.replace(/\b(?:was|list price|msrp)\b.*$/i, "");
+
+  const sentence = text.split(/\\.|\\n|\\r/)[0] || text;
+  const cleaned = normalizeWhitespace(sentence);
+  if (!cleaned) return null;
+  if (cleaned.length > 90) {
+    return cleaned.slice(0, 90).trim();
+  }
+  return cleaned;
 }

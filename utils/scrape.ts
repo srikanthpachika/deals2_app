@@ -20,7 +20,16 @@ function safeSiteName(url: string): string {
   }
 }
 
-export async function scrapeOG(url: string, options: ScrapeOptions = {}) {
+type ScrapeResult = {
+  title: string;
+  description: string;
+  image: string;
+  price: string;
+  siteName: string;
+  percentOff?: number | null;
+};
+
+export async function scrapeOG(url: string, options: ScrapeOptions = {}): Promise<ScrapeResult> {
   const controller = new AbortController();
   const timeoutMs = options.timeoutMs ?? 15000;
   const timeoutId = timeoutMs ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
@@ -49,6 +58,7 @@ export async function scrapeOG(url: string, options: ScrapeOptions = {}) {
       image: "",
       price: "",
       siteName: safeSiteName(url),
+      percentOff: null,
     };
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
@@ -61,6 +71,7 @@ export async function scrapeOG(url: string, options: ScrapeOptions = {}) {
       image: "",
       price: "",
       siteName: safeSiteName(url),
+      percentOff: null,
     };
   }
 
@@ -93,5 +104,61 @@ export async function scrapeOG(url: string, options: ScrapeOptions = {}) {
 
   const siteName = meta("og:site_name") || safeSiteName(url);
 
-  return { title, description, image, price, siteName };
+  const percentOff = extractAmazonPercentOff(html);
+
+  return { title, description, image, price, siteName, percentOff };
+}
+
+function extractAmazonPercentOff(html: string): number | null {
+  const patterns: RegExp[] = [
+    /"savingsPercentage"\s*:\s*"?(\d{1,2})"?/i,
+    /"savingPercent"\s*:\s*"?(-?\d{1,2})"?/i,
+    /(\d{1,2})\s?%\s*off/i,
+    /Save\s*(\d{1,2})\s?%/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (!match) continue;
+    const value = Number(match[1]);
+    if (Number.isFinite(value) && value >= 5 && value < 100) return value;
+  }
+
+  const prices = extractAmazonPrices(html);
+  if (prices?.list && prices.current) {
+    const percent = Math.round(((prices.list - prices.current) / prices.list) * 100);
+    if (Number.isFinite(percent) && percent >= 5 && percent < 100) return percent;
+  }
+
+  return null;
+}
+
+function extractAmazonPrices(html: string): { list: number | null; current: number | null } | null {
+  const listPatterns: RegExp[] = [
+    /"listPrice"\s*:\s*\{[^}]*"amount"\s*:\s*"?(\d+\.?\d*)"?/i,
+    /List Price:\s*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
+    /priceblock_strikeprice[^\$]*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
+  ];
+  const currentPatterns: RegExp[] = [
+    /"priceToPay"\s*:\s*\{"displayPrice"\s*:\s*"\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)"/i,
+    /priceblock_dealprice[^\$]*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
+    /priceblock_ourprice[^\$]*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
+    /"price"\s*:\s*"\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)"/i,
+  ];
+
+  const list = findFirstPrice(html, listPatterns);
+  const current = findFirstPrice(html, currentPatterns);
+
+  if (!list && !current) return null;
+  return { list, current };
+}
+
+function findFirstPrice(html: string, patterns: RegExp[]): number | null {
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (!match) continue;
+    const value = Number(match[1].replace(/[^0-9.]/g, ""));
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return null;
 }

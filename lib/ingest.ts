@@ -3,11 +3,12 @@ import { scrapeOG } from "../utils/scrape";
 import { fetchFeed } from "../utils/rss";
 import { FEED_SOURCES } from "./ingestSources";
 import { getDealExpiresAt } from "./dealExpiry";
-import { getIngestDefaults } from "./ingestConfig";
+import { getIngestDefaults, getMinDealScore, getMinPercentOff } from "./ingestConfig";
 import {
   cleanUrl,
   extractAmazonUrl,
   extractPrice,
+  getDisplayPrice,
   isHttpUrl,
   normalizeDealDescription,
   normalizeDealTitle,
@@ -57,6 +58,8 @@ export async function ingestFeeds(
   const maxPerSource = options.maxPerSource ?? defaults.maxPerSource;
   const maxScrape = options.maxScrape ?? defaults.maxScrape;
   const maxResolve = options.maxResolve ?? defaults.maxResolve;
+  const minScore = getMinDealScore();
+  const minPercent = getMinPercentOff();
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -154,6 +157,7 @@ export async function ingestFeeds(
       let price = extractPrice(title) || extractPrice(description);
       let image: string | null = null;
       let sourceLabel = "amazon.com";
+      let scrapedPercent: number | null = null;
 
       if (scrapedCount < maxScrape) {
         scrapedCount += 1;
@@ -166,6 +170,9 @@ export async function ingestFeeds(
           }
           image = og.image || null;
           sourceLabel = og.siteName || sourceLabel;
+          if (og.percentOff && og.percentOff > 0) {
+            scrapedPercent = og.percentOff;
+          }
         } catch {
           report.notes.push(`Scrape failed: ${url}`);
         }
@@ -176,11 +183,26 @@ export async function ingestFeeds(
         continue;
       }
 
+      const rawTitle = title;
+      const rawDescription = description;
       const normalized = normalizeDealTitle(title, description);
       title = normalized.title;
       description = normalizeDealDescription(description, normalized.extras) || "";
       if (description) {
         description = trimText(description, 280);
+      }
+      const displayPrice = getDisplayPrice(rawTitle, rawDescription, price);
+      const postScore = scoreDeal(`${rawTitle} ${rawDescription}`);
+      const percentOff = scrapedPercent ?? normalized.percentOff;
+
+      if (minScore > 0 && postScore < minScore) {
+        report.skipped += 1;
+        continue;
+      }
+
+      if (percentOff !== null && percentOff < minPercent) {
+        report.skipped += 1;
+        continue;
       }
 
       if (!title) {
@@ -211,10 +233,11 @@ export async function ingestFeeds(
             where: { url },
             data: {
               title,
-              price: price || null,
+              price: displayPrice || null,
               image: image || null,
               description: description || null,
               source: sourceLabel || null,
+              percentOff,
               expiresAt: getDealExpiresAt(item.publishedAt, now),
             },
           });
@@ -236,10 +259,11 @@ export async function ingestFeeds(
           data: {
             title,
             url,
-            price: price || null,
+            price: displayPrice || null,
             image: image || null,
             description: description || null,
             source: sourceLabel || null,
+            percentOff,
             approved: true,
             expiresAt: getDealExpiresAt(item.publishedAt, now),
           },

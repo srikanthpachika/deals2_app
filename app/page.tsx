@@ -1,12 +1,19 @@
 import { prisma } from "@/lib/prisma";
-import DealCard from "@/components/DealCard";
 import AdSlot from "@/components/AdSlot";
+import DealCard from "@/components/DealCard";
 import Link from "next/link";
 import { getDealCreatedAtCutoff } from "@/lib/dealExpiry";
 import { maybeIngestFeeds } from "@/lib/autoIngest";
 import { DEAL_CATEGORIES, getDealCategory } from "@/lib/dealCategories";
-import { normalizeDealDescription, normalizeDealTitle } from "@/lib/dealFilters";
-import { CONTENT_POSTS } from "@/lib/content";
+import {
+  getDisplayPrice,
+  normalizeDealDescription,
+  normalizeDealTitle,
+} from "@/lib/dealFilters";
+import NewsletterForm from "@/components/NewsletterForm";
+import StickyHeaderController from "@/components/StickyHeaderController";
+import DealFeed from "@/components/DealFeed";
+import ScrollResume from "@/components/ScrollResume";
 
 export const revalidate = 600;
 
@@ -34,10 +41,13 @@ export default async function Home() {
     const normalized = normalizeDealTitle(deal.title, deal.description);
     const description = normalizeDealDescription(deal.description, normalized.extras);
     const category = getDealCategory(normalized.title, description);
+    const displayPrice = getDisplayPrice(deal.title, deal.description, deal.price);
     return {
       ...deal,
       title: normalized.title,
       description,
+      price: displayPrice || deal.price,
+      percentOff: deal.percentOff ?? null,
       createdAt: deal.createdAt.toISOString(),
       categoryId: category.id,
       categoryLabel: category.label,
@@ -79,6 +89,8 @@ export default async function Home() {
 
   return (
     <div className="page">
+      <StickyHeaderController />
+      <ScrollResume />
       <div className="top-shell">
         <header className="site-header">
           <div className="brand">
@@ -148,20 +160,7 @@ export default async function Home() {
             <p className="panel-subtitle">
               A calm, curated feed of new Amazon discounts, delivered in minutes.
             </p>
-            <div className="panel-form">
-              <label className="label" htmlFor="newsletter-email">
-                Email
-              </label>
-              <input
-                id="newsletter-email"
-                className="input"
-                type="email"
-                placeholder="you@email.com"
-              />
-              <button className="btn btn--primary" type="button">
-                Notify me
-              </button>
-            </div>
+            <NewsletterForm />
             <p className="micro">No spam. Unsubscribe anytime.</p>
           </div>
           <div className="panel-card panel-card--stats">
@@ -178,15 +177,31 @@ export default async function Home() {
               <span className="stat__value">{latestLabel}</span>
             </div>
           </div>
-          <div className="ad-frame">
-            <AdSlot slot="6474972689" />
+          <div className="panel-card panel-card--quick">
+            <p className="eyebrow">Verified right now</p>
+            <h3 className="panel-title">Top drops</h3>
+            <div className="quick-list">
+              {dealsWithCategory.slice(0, 3).map((deal) => (
+                <a key={deal.id} className="quick-item" href={`/deal/${deal.id}`}>
+                  <span className="quick-item__title">{deal.title}</span>
+                  <span className="quick-item__meta">
+                    {deal.percentOff ? `${deal.percentOff}% off` : "Verified"}
+                  </span>
+                </a>
+              ))}
+              {dealsWithCategory.length === 0 ? (
+                <span className="muted">No verified drops yet.</span>
+              ) : null}
+            </div>
           </div>
         </div>
       </section>
 
-      <div className="ad-frame">
-        <AdSlot slot="TOP_BANNER_SLOT_ID" />
-      </div>
+      {process.env.NEXT_PUBLIC_ADSENSE_CLIENT ? (
+        <div className="ad-frame">
+          <AdSlot slot="TOP_BANNER_SLOT_ID" />
+        </div>
+      ) : null}
 
       <section id="all-deals" className="collection-section">
         <div className="section-header">
@@ -214,16 +229,10 @@ export default async function Home() {
             </div>
           </div>
         ) : (
-          <div className="deal-grid deal-grid--featured">
-            {dealsWithCategory.map((deal, index) => (
-              <DealCard
-                key={deal.id}
-                deal={deal}
-                index={index}
-                variant="compact"
-              />
-            ))}
-          </div>
+          <DealFeed
+            deals={dealsWithCategory}
+            cadenceMinutes={cadenceMinutes}
+          />
         )}
       </section>
 
@@ -287,39 +296,11 @@ export default async function Home() {
         </section>
       ) : null}
 
-      <section className="content-section">
-        <div className="section-header">
-          <div>
-            <h3 className="section-title">Articles, guides & reviews</h3>
-            <p className="section-subtitle">
-              Clean, opinionated reads for smarter Amazon shopping.
-            </p>
-          </div>
-          <div className="section-actions">
-            <a className="btn btn--link" href="/articles">
-              View all
-            </a>
-          </div>
+      {process.env.NEXT_PUBLIC_ADSENSE_CLIENT ? (
+        <div className="ad-frame">
+          <AdSlot slot="8909564330" />
         </div>
-        <div className="content-card-grid">
-          {CONTENT_POSTS.map((post) => (
-            <article key={post.href} className="content-card">
-              <div>
-                <p className="content-card__type">{post.type}</p>
-                <h3 className="content-card__title">{post.title}</h3>
-                <p className="content-card__desc">{post.description}</p>
-              </div>
-              <Link href={post.href} className="btn btn--primary">
-                Read more
-              </Link>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <div className="ad-frame">
-        <AdSlot slot="8909564330" />
-      </div>
+      ) : null}
     </div>
   );
 }

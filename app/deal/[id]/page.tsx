@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import {
+  getDisplayPrice,
   normalizeAmazonProductUrl,
   normalizeDealDescription,
   normalizeDealTitle,
@@ -30,7 +31,7 @@ export default async function DealPage({ params }: { params: { id: string } }) {
             This deal may have expired or been removed.
           </p>
           <div className="form-actions">
-            <Link href="/" className="btn btn--primary">
+            <Link href="/" className="btn btn--primary btn--back">
               Back to deals
             </Link>
           </div>
@@ -44,6 +45,11 @@ export default async function DealPage({ params }: { params: { id: string } }) {
     deal.description,
     normalized.extras
   );
+  const displayPrice = getDisplayPrice(deal.title, deal.description, deal.price);
+  const displayPercent = normalized.extras?.percentOff ?? null;
+  const displayTitle = displayPercent
+    ? `${normalized.title} - ${displayPercent}% off`
+    : normalized.title;
   const affiliateUrl = withAmazonAffiliateTag(deal.url);
   const category = getDealCategory(normalized.title, displayDescription);
 
@@ -51,10 +57,10 @@ export default async function DealPage({ params }: { params: { id: string } }) {
     <div className="page">
       <header className="page-header">
         <div>
-          <Link href="/" className="link-back">
+          <Link href="/" className="btn btn--soft btn--back">
             Back to deals
           </Link>
-          <h1 className="page-title">{normalized.title}</h1>
+          <h1 className="page-title">{displayTitle}</h1>
           {deal.source ? (
             <p className="page-subtitle">Source: {deal.source}</p>
           ) : null}
@@ -88,10 +94,10 @@ export default async function DealPage({ params }: { params: { id: string } }) {
             >
               {category.label}
             </span>
-            {normalized.percentOff !== null ? (
-              <span className="tag tag--percent">{normalized.percentOff}% off</span>
+            {displayPercent !== null && displayPercent !== undefined ? (
+              <span className="tag tag--percent">{displayPercent}% off</span>
             ) : null}
-            {deal.price ? <span className="tag tag--price">{deal.price}</span> : null}
+            {displayPrice ? <span className="tag tag--price">{displayPrice}</span> : null}
             {deal.source ? <span className="tag">{deal.source}</span> : null}
           </div>
           <div className="form-actions">
