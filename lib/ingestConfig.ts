@@ -13,8 +13,8 @@ const DEFAULT_MAX_PER_SOURCE = 120;
 const DEFAULT_MAX_SCRAPE = 40;
 const DEFAULT_MAX_RESOLVE = 40;
 const DEFAULT_DAILY_LIMIT = 1500;
-const DEFAULT_MIN_SCORE = 3;
-const DEFAULT_MIN_PERCENT = 15;
+const DEFAULT_MIN_SCORE = 1;
+const DEFAULT_MIN_PERCENT = 10;
 
 function parseNumber(value: string | undefined, fallback: number): number {
   if (!value) return fallback;

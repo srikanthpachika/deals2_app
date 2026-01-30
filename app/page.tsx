@@ -6,7 +6,6 @@ import { getDealCreatedAtCutoff } from "@/lib/dealExpiry";
 import { maybeIngestFeeds } from "@/lib/autoIngest";
 import { DEAL_CATEGORIES, getDealCategory } from "@/lib/dealCategories";
 import {
-  getDisplayPrice,
   normalizeDealDescription,
   normalizeDealTitle,
 } from "@/lib/dealFilters";
@@ -14,11 +13,12 @@ import NewsletterForm from "@/components/NewsletterForm";
 import StickyHeaderController from "@/components/StickyHeaderController";
 import DealFeed from "@/components/DealFeed";
 import ScrollResume from "@/components/ScrollResume";
+import Image from "next/image";
 
 export const revalidate = 600;
 
 const MAX_DEALS = 1000;
-const CATEGORY_DEALS_LIMIT = 36;
+const CATEGORY_DEALS_LIMIT = 40;
 
 export default async function Home() {
   await maybeIngestFeeds();
@@ -28,6 +28,9 @@ export default async function Home() {
     where: {
       approved: true,
       url: { startsWith: "https://www.amazon.com/dp/" },
+      image: { not: null },
+      price: { not: null },
+      NOT: { price: "" },
       OR: [
         { expiresAt: { gt: now } },
         { createdAt: { gte: cutoff } },
@@ -41,12 +44,14 @@ export default async function Home() {
     const normalized = normalizeDealTitle(deal.title, deal.description);
     const description = normalizeDealDescription(deal.description, normalized.extras);
     const category = getDealCategory(normalized.title, description);
-    const displayPrice = getDisplayPrice(deal.title, deal.description, deal.price);
     return {
-      ...deal,
+      id: deal.id,
       title: normalized.title,
+      url: deal.url,
+      image: deal.image,
+      price: deal.price,
+      source: deal.source,
       description,
-      price: displayPrice || deal.price,
       percentOff: deal.percentOff ?? null,
       createdAt: deal.createdAt.toISOString(),
       categoryId: category.id,
@@ -86,6 +91,7 @@ export default async function Home() {
   const cadenceLabel = Number.isFinite(cadenceMinutes)
     ? `${Math.max(1, cadenceMinutes)} min`
     : "hourly";
+  const featuredDeals = dealsWithCategory.slice(0, 12);
 
   return (
     <div className="page">
@@ -107,9 +113,7 @@ export default async function Home() {
             <a href="#category-sections" className="btn btn--soft">
               Categories
             </a>
-            <Link href="/admin" className="btn btn--ghost">
-              Admin
-            </Link>
+            <span className="chip chip--live">{dealsCount} live</span>
           </nav>
         </header>
 
@@ -133,7 +137,69 @@ export default async function Home() {
         </nav>
       </div>
 
-      <section className="hero hero--full">
+      <section id="all-deals" className="collection-section collection-section--top">
+        <div className="all-deals-layout">
+          <div className="all-deals-main">
+            <div className="section-header">
+              <div>
+                <h3 className="section-title">All deals</h3>
+                <p className="section-subtitle">
+                  The full feed, refreshed constantly, newest first.
+                </p>
+              </div>
+              <div className="section-actions">
+                <span className="chip">{dealsCount} live</span>
+              </div>
+            </div>
+
+            {dealsCount === 0 ? (
+              <div className="card empty-state">
+                <h4 className="card__title">Nothing live yet</h4>
+                <p className="muted">
+                  Check back soon or add the first deal from the admin page.
+                </p>
+                <div className="form-actions">
+                  <Link href="/admin" className="btn btn--primary">
+                    Add a deal
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <DealFeed
+                deals={dealsWithCategory}
+                cadenceMinutes={cadenceMinutes}
+              />
+            )}
+          </div>
+          <aside className="all-deals-aside">
+            <div className="panel-card panel-card--newsletter panel-card--compact">
+              <p className="eyebrow">Stay in the loop</p>
+              <h3 className="panel-title">Get the best drops first</h3>
+              <p className="panel-subtitle">
+                A calm, curated feed of new Amazon discounts, delivered in minutes.
+              </p>
+              <NewsletterForm />
+              <p className="micro">No spam. Unsubscribe anytime.</p>
+            </div>
+            <div className="panel-card panel-card--stats panel-card--compact">
+              <div className="stat">
+                <span className="stat__label">Live deals</span>
+                <span className="stat__value">{dealsCount}</span>
+              </div>
+              <div className="stat">
+                <span className="stat__label">Categories live</span>
+                <span className="stat__value">{categoryCount}</span>
+              </div>
+              <div className="stat">
+                <span className="stat__label">Latest refresh</span>
+                <span className="stat__value">{latestLabel}</span>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section className="hero hero--full hero--secondary">
         <div className="hero__copy">
           <p className="eyebrow">Live drops</p>
           <h2>
@@ -152,89 +218,64 @@ export default async function Home() {
             </a>
             <span className="pill">Refreshes every {cadenceLabel}</span>
           </div>
-        </div>
-        <div className="hero__panel">
-          <div className="panel-card panel-card--newsletter">
-            <p className="eyebrow">Stay in the loop</p>
-            <h3 className="panel-title">Get the best drops first</h3>
-            <p className="panel-subtitle">
-              A calm, curated feed of new Amazon discounts, delivered in minutes.
-            </p>
-            <NewsletterForm />
-            <p className="micro">No spam. Unsubscribe anytime.</p>
-          </div>
-          <div className="panel-card panel-card--stats">
-            <div className="stat">
-              <span className="stat__label">Live deals</span>
-              <span className="stat__value">{dealsCount}</span>
-            </div>
-            <div className="stat">
-              <span className="stat__label">Categories live</span>
-              <span className="stat__value">{categoryCount}</span>
-            </div>
-            <div className="stat">
-              <span className="stat__label">Latest refresh</span>
-              <span className="stat__value">{latestLabel}</span>
-            </div>
-          </div>
-          <div className="panel-card panel-card--quick">
-            <p className="eyebrow">Verified right now</p>
-            <h3 className="panel-title">Top drops</h3>
-            <div className="quick-list">
-              {dealsWithCategory.slice(0, 3).map((deal) => (
-                <a key={deal.id} className="quick-item" href={`/deal/${deal.id}`}>
-                  <span className="quick-item__title">{deal.title}</span>
-                  <span className="quick-item__meta">
-                    {deal.percentOff ? `${deal.percentOff}% off` : "Verified"}
-                  </span>
+          {featuredDeals.length ? (
+            <div className="hero-featured">
+              <div className="hero-featured__header">
+                <p className="eyebrow">Featured now</p>
+                <a className="btn btn--link" href="#all-deals">
+                  View all
                 </a>
-              ))}
-              {dealsWithCategory.length === 0 ? (
-                <span className="muted">No verified drops yet.</span>
-              ) : null}
+              </div>
+              <div className="hero-featured__grid">
+                {featuredDeals.map((deal) => (
+                  <Link
+                    key={deal.id}
+                    className="featured-card"
+                    href={`/deal/${deal.id}`}
+                  >
+                    <div className="featured-card__media">
+                      {deal.image ? (
+                        <Image
+                          src={deal.image}
+                          alt={deal.title}
+                          fill
+                          sizes="(max-width: 720px) 45vw, 120px"
+                          className="featured-card__image"
+                        />
+                      ) : (
+                        <div className="deal-card__placeholder">No image</div>
+                      )}
+                    </div>
+                    <div className="featured-card__body">
+                      <span className="featured-card__title">{deal.title}</span>
+                      <div className="featured-card__meta">
+                        {deal.percentOff ? (
+                          <span className="tag tag--percent tag--tight">
+                            {deal.percentOff}% off
+                          </span>
+                        ) : null}
+                        {deal.price ? (
+                          <span className="tag tag--price tag--tight">
+                            {deal.price}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
+        
       </section>
 
-      {process.env.NEXT_PUBLIC_ADSENSE_CLIENT ? (
+      {process.env.NODE_ENV === "production" &&
+      process.env.NEXT_PUBLIC_ADSENSE_CLIENT ? (
         <div className="ad-frame">
           <AdSlot slot="TOP_BANNER_SLOT_ID" />
         </div>
       ) : null}
-
-      <section id="all-deals" className="collection-section">
-        <div className="section-header">
-          <div>
-            <h3 className="section-title">All deals</h3>
-            <p className="section-subtitle">
-              The full feed, refreshed constantly, newest first.
-            </p>
-          </div>
-          <div className="section-actions">
-            <span className="chip">{dealsCount} live</span>
-          </div>
-        </div>
-
-        {dealsCount === 0 ? (
-          <div className="card empty-state">
-            <h4 className="card__title">Nothing live yet</h4>
-            <p className="muted">
-              Check back soon or add the first deal from the admin page.
-            </p>
-            <div className="form-actions">
-              <Link href="/admin" className="btn btn--primary">
-                Add a deal
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <DealFeed
-            deals={dealsWithCategory}
-            cadenceMinutes={cadenceMinutes}
-          />
-        )}
-      </section>
 
       <div id="category-sections" className="category-anchor" />
 
@@ -296,7 +337,8 @@ export default async function Home() {
         </section>
       ) : null}
 
-      {process.env.NEXT_PUBLIC_ADSENSE_CLIENT ? (
+      {process.env.NODE_ENV === "production" &&
+      process.env.NEXT_PUBLIC_ADSENSE_CLIENT ? (
         <div className="ad-frame">
           <AdSlot slot="8909564330" />
         </div>

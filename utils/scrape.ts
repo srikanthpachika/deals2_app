@@ -98,13 +98,47 @@ export async function scrapeOG(url: string, options: ScrapeOptions = {}): Promis
     root.querySelector("img[data-a-dynamic-image]")?.getAttribute("src") ||
     "";
 
+  if (!image) {
+    const dynamicImage = root
+      .querySelector("img[data-a-dynamic-image]")
+      ?.getAttribute("data-a-dynamic-image");
+    if (dynamicImage) {
+      try {
+        const parsed = JSON.parse(dynamicImage);
+        const first = Object.keys(parsed)[0];
+        if (first) image = first;
+      } catch {
+        // ignore JSON parse errors
+      }
+    }
+  }
+
+  if (!image) {
+    const extracted = extractAmazonImage(html);
+    if (extracted) image = extracted;
+  }
+
+  if (!image && url.includes("amazon.com")) {
+    const jinaImage = await extractAmazonImageFromJina(url, Math.min(8000, timeoutMs));
+    if (jinaImage) image = jinaImage;
+  }
+
   if (image) image = absolutize(image, url);
 
-  const price = meta("product:price:amount") || "";
+  let price = meta("product:price:amount") || "";
 
   const siteName = meta("og:site_name") || safeSiteName(url);
 
   const percentOff = extractAmazonPercentOff(html);
+  const prices = extractAmazonPrices(html);
+  if (prices?.current) {
+    price = formatPriceValue(prices.current);
+  } else if (!price && prices?.list) {
+    price = formatPriceValue(prices.list);
+  } else if (price && !price.startsWith("$")) {
+    const parsed = Number(price);
+    if (Number.isFinite(parsed)) price = formatPriceValue(parsed);
+  }
 
   return { title, description, image, price, siteName, percentOff };
 }
@@ -136,11 +170,14 @@ function extractAmazonPercentOff(html: string): number | null {
 function extractAmazonPrices(html: string): { list: number | null; current: number | null } | null {
   const listPatterns: RegExp[] = [
     /"listPrice"\s*:\s*\{[^}]*"amount"\s*:\s*"?(\d+\.?\d*)"?/i,
+    /"listPrice"\s*:\s*\{[^}]*"value"\s*:\s*"?(\d+\.?\d*)"?/i,
     /List Price:\s*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
     /priceblock_strikeprice[^\$]*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
   ];
   const currentPatterns: RegExp[] = [
     /"priceToPay"\s*:\s*\{"displayPrice"\s*:\s*"\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)"/i,
+    /"priceToPay"\s*:\s*\{[^}]*"value"\s*:\s*"?(\d+\.?\d*)"?/i,
+    /"priceToPay"\s*:\s*\{[^}]*"amount"\s*:\s*"?(\d+\.?\d*)"?/i,
     /priceblock_dealprice[^\$]*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
     /priceblock_ourprice[^\$]*\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/i,
     /"price"\s*:\s*"\$([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)"/i,
@@ -161,4 +198,69 @@ function findFirstPrice(html: string, patterns: RegExp[]): number | null {
     if (Number.isFinite(value) && value > 0) return value;
   }
   return null;
+}
+
+function formatPriceValue(value: number): string {
+  const rounded = Math.round(value * 100) / 100;
+  const cents = Math.round(rounded * 100) % 100;
+  const formatted = cents === 0 ? rounded.toFixed(0) : rounded.toFixed(2);
+  return `$${formatted}`;
+}
+
+function extractAmazonImage(html: string): string | null {
+  const patterns: RegExp[] = [
+    /"hiRes"\s*:\s*"([^"]+)"/i,
+    /"large"\s*:\s*"([^"]+)"/i,
+    /"main"\s*:\s*\{[^}]*"url"\s*:\s*"([^"]+)"/i,
+  ];
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (!match) continue;
+    const decoded = decodeJsonString(match[1]);
+    if (decoded) return decoded;
+  }
+  return null;
+}
+
+function decodeJsonString(value: string): string {
+  return value
+    .replace(/\\u002F/g, "/")
+    .replace(/\\u003A/g, ":")
+    .replace(/\\u003D/g, "=")
+    .replace(/\\u0026/g, "&")
+    .replace(/\\u003F/g, "?")
+    .replace(/\\\\/g, "\\")
+    .replace(/\\"/g, "\"");
+}
+
+async function extractAmazonImageFromJina(url: string, timeoutMs: number): Promise<string | null> {
+  const controller = new AbortController();
+  const timeoutId = timeoutMs ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
+
+  try {
+    const jinaUrl = `https://r.jina.ai/http://${url.replace(/^https?:\/\//, "")}`;
+    const res = await fetch(jinaUrl, {
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+      },
+      signal: controller.signal,
+    });
+    const text = await res.text();
+    const matches = text.match(/https?:\/\/m\.media-amazon\.com\/images\/I\/[^\s\]]+/gi);
+    if (!matches || !matches.length) return null;
+    const cleaned = matches.map((entry) => entry.replace(/[),]+$/, ""));
+    const filtered = cleaned.filter(
+      (entry) => !/(sprite|icon|logo|prime|favicon)/i.test(entry)
+    );
+    const candidates = filtered.length ? filtered : cleaned;
+    const preferred =
+      candidates.find((entry) => /_AC_|_SL\d+_|_SX\d+_/i.test(entry)) ||
+      candidates[0];
+    return preferred || null;
+  } catch {
+    return null;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
 }

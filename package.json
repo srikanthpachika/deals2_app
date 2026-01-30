@@ -11,7 +11,8 @@
     "prisma:migrate": "prisma migrate dev",
     "seed": "node --loader ts-node/esm scripts/seed.ts",
     "ingest": "tsx scripts/ingestFeeds.ts",
-    "ingest:watch": "tsx scripts/ingestWatch.ts"
+    "ingest:watch": "tsx scripts/ingestWatch.ts",
+    "images:backfill": "tsx scripts/backfillImages.ts"
   },
   "dependencies": {
     "@prisma/client": "5.19.1",

@@ -99,10 +99,21 @@ function linkFromTag(node: any): string {
   const alternate = node.querySelector('link[rel="alternate"]');
   const link = alternate || node.querySelector("link");
   const href = link?.getAttribute?.("href");
-  if (href) return href.trim();
+  if (href) return decodeHtml(href.trim());
   const text = link?.text;
-  if (text) return text.trim();
+  if (text) return decodeHtml(text.trim());
+  const raw = node?.innerHTML || node?.rawText || "";
+  if (raw) {
+    const match = raw.match(/<link>([^<]+)/i);
+    if (match?.[1]) return decodeHtml(match[1].trim());
+    const hrefMatch = raw.match(/<link[^>]*href="([^"]+)"/i);
+    if (hrefMatch?.[1]) return decodeHtml(hrefMatch[1].trim());
+  }
   return "";
+}
+
+function decodeHtml(value: string): string {
+  return value.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 }
 
 function textContent(node: any, selector: string): string {

@@ -9,6 +9,7 @@ type AutoIngestConfig = {
   maxPerSource: number;
   maxScrape: number;
   maxResolve: number;
+  minLiveDeals: number;
 };
 
 const DEFAULT_STALE_MINUTES = 10;
@@ -17,6 +18,7 @@ const DEFAULT_MAX_PER_RUN = 50;
 const DEFAULT_MAX_PER_SOURCE = 50;
 const DEFAULT_MAX_SCRAPE = 15;
 const DEFAULT_MAX_RESOLVE = 15;
+const DEFAULT_MIN_LIVE_DEALS = 30;
 
 let inFlight: Promise<void> | null = null;
 let lastRunAtMs = 0;
@@ -45,20 +47,34 @@ function getConfig(): AutoIngestConfig {
     maxPerSource: parseNumber(process.env.AUTO_INGEST_MAX_PER_SOURCE, DEFAULT_MAX_PER_SOURCE),
     maxScrape: parseNumber(process.env.AUTO_INGEST_MAX_SCRAPE, DEFAULT_MAX_SCRAPE),
     maxResolve: parseNumber(process.env.AUTO_INGEST_MAX_RESOLVE, DEFAULT_MAX_RESOLVE),
+    minLiveDeals: parseNumber(process.env.AUTO_INGEST_MIN_LIVE_DEALS, DEFAULT_MIN_LIVE_DEALS),
   };
 }
 
-async function shouldIngest(staleMinutes: number): Promise<boolean> {
+async function shouldIngest(staleMinutes: number, minLiveDeals: number): Promise<boolean> {
   const latest = await prisma.deal.findFirst({
     where: {
       approved: true,
       url: { startsWith: "https://www.amazon.com/dp/" },
+      image: { not: null },
+      price: { not: null },
+      NOT: { price: "" },
     },
     orderBy: { createdAt: "desc" },
     select: { createdAt: true },
   });
 
   if (!latest) return true;
+  const liveCount = await prisma.deal.count({
+    where: {
+      approved: true,
+      url: { startsWith: "https://www.amazon.com/dp/" },
+      image: { not: null },
+      price: { not: null },
+      NOT: { price: "" },
+    },
+  });
+  if (liveCount < minLiveDeals) return true;
   const ageMs = Date.now() - latest.createdAt.getTime();
   return ageMs > staleMinutes * 60 * 1000;
 }
@@ -73,7 +89,7 @@ export async function maybeIngestFeeds(): Promise<void> {
     return;
   }
 
-  const ingestNeeded = await shouldIngest(config.staleMinutes);
+  const ingestNeeded = await shouldIngest(config.staleMinutes, config.minLiveDeals);
   if (!ingestNeeded) return;
 
   inFlight = ingestFeeds({

@@ -166,18 +166,19 @@ export function extractPrice(text: string): string | null {
 }
 
 export function getDisplayPrice(
-  title: string | null | undefined,
-  description?: string | null,
+  _title: string | null | undefined,
+  _description?: string | null,
   fallback?: string | null
 ): string | null {
-  const combined = `${title ?? ""} ${description ?? ""}`.trim();
-  const fromText = extractPrice(combined);
-  if (fromText) return fromText;
   if (fallback) {
     const fromFallback = extractPrice(fallback);
     if (fromFallback) return fromFallback;
     const cleaned = sanitizeText(fallback);
     if (cleaned.startsWith("$")) return cleaned;
+    const parsed = Number(cleaned.replace(/[^0-9.]/g, ""));
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return formatPriceValue(parsed);
+    }
   }
   return null;
 }

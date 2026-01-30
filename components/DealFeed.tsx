@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import DealCard, { DealProps } from "@/components/DealCard";
 
-const DEFAULT_BATCH = 24;
+const DEFAULT_BATCH = 48;
 
 function formatMinutes(value: number): string {
   if (!Number.isFinite(value)) return "10";
@@ -44,7 +44,7 @@ export default function DealFeed({
 
   const feedItems = useMemo(() => {
     return visibleDeals.flatMap((deal, index) => {
-      const items: React.ReactNode[] = [];
+      const items: ReactNode[] = [];
       if (index === firstNewIndex) {
         items.push(
           <div key={`marker-${deal.id}`} className="feed-marker">

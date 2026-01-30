@@ -154,7 +154,7 @@ export async function ingestFeeds(
 
       let title = normalizeTitle(item.title || "");
       let description = trimText(item.description || "", 280);
-      let price = extractPrice(title) || extractPrice(description);
+      let price: string | null = null;
       let image: string | null = null;
       let sourceLabel = "amazon.com";
       let scrapedPercent: number | null = null;
@@ -165,8 +165,9 @@ export async function ingestFeeds(
           const og = await scrapeOG(url, { timeoutMs: OG_TIMEOUT_MS });
           if (!title) title = normalizeTitle(og.title || "");
           if (!description) description = trimText(og.description || "", 280);
-          if (!price) {
-            price = extractPrice(og.title || "") || extractPrice(og.description || "");
+          if (og.price) {
+            const trimmed = og.price.trim();
+            price = trimmed ? trimmed : null;
           }
           image = og.image || null;
           sourceLabel = og.siteName || sourceLabel;
@@ -191,7 +192,8 @@ export async function ingestFeeds(
       if (description) {
         description = trimText(description, 280);
       }
-      const displayPrice = getDisplayPrice(rawTitle, rawDescription, price);
+      const fallbackPrice = price ? null : extractPrice(`${rawTitle} ${rawDescription}`);
+      const displayPrice = price ?? fallbackPrice;
       const postScore = scoreDeal(`${rawTitle} ${rawDescription}`);
       const percentOff = scrapedPercent ?? normalized.percentOff;
 

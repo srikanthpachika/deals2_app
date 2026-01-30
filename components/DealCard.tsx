@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  getDisplayPrice,
   normalizeDealDescription,
   normalizeDealTitle,
   withAmazonAffiliateTag,
@@ -38,11 +37,11 @@ export default function DealCard({
     deal.description,
     normalized.extras
   );
-  const displayPrice = getDisplayPrice(deal.title, deal.description, deal.price);
   const displayPercent = deal.percentOff ?? null;
   const displayTitle = displayPercent
     ? `${normalized.title} - ${displayPercent}% off`
     : normalized.title;
+  const displayPrice = deal.price ?? null;
   const affiliateUrl = withAmazonAffiliateTag(deal.url);
 
   return (
