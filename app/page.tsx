@@ -31,6 +31,8 @@ export default async function Home() {
       image: { not: null },
       price: { not: null },
       NOT: { price: "" },
+      percentVerified: true,
+      percentOff: { not: null },
       OR: [
         { expiresAt: { gt: now } },
         { createdAt: { gte: cutoff } },

@@ -168,7 +168,8 @@ export async function ingestFeeds(
       let image: string | null = null;
       let sourceLabel = "amazon.com";
       let scrapedPercent: number | null = null;
-      let scrapedPercentSource: "computed" | "structured" | "text" | null = null;
+      let scrapedPercentSource: "structured" | "text" | null = null;
+      let scrapedPercentComputed: number | null = null;
       let scrapedPrices: { list: number | null; current: number | null } | null = null;
 
       if (scrapedCount < maxScrape) {
@@ -187,6 +188,7 @@ export async function ingestFeeds(
             scrapedPercent = og.percentOff;
           }
           scrapedPercentSource = og.percentSource ?? null;
+          scrapedPercentComputed = og.percentComputed ?? null;
           scrapedPrices = og.prices ?? null;
         } catch {
           report.notes.push(`Scrape failed: ${url}`);
@@ -208,29 +210,19 @@ export async function ingestFeeds(
       }
       const fallbackPrice = extractPrice(`${rawTitle} ${rawDescription}`);
       const computedPercent =
-        scrapedPrices?.list &&
+        scrapedPercentComputed ??
+        (scrapedPrices?.list &&
         scrapedPrices.current &&
         scrapedPrices.list > scrapedPrices.current
           ? Math.round(
               ((scrapedPrices.list - scrapedPrices.current) / scrapedPrices.list) * 100
             )
-          : null;
-      const candidateFromScrape =
-        scrapedPercentSource && scrapedPercentSource !== "computed"
+          : null);
+      const candidatePercent =
+        scrapedPercent && scrapedPercent > 0 && scrapedPercent < 100
           ? scrapedPercent
           : null;
-      const candidateFromText = normalized.percentOff ?? null;
-      const candidatePercentRaw = candidateFromScrape ?? candidateFromText;
-      const candidatePercent =
-        candidatePercentRaw && candidatePercentRaw > 0 && candidatePercentRaw < 100
-          ? candidatePercentRaw
-          : null;
-      const candidateSource: "structured" | "text" | null =
-        candidateFromScrape && scrapedPercentSource && scrapedPercentSource !== "computed"
-          ? scrapedPercentSource
-          : candidateFromText
-          ? "text"
-          : null;
+      const candidateSource = scrapedPercentSource;
       const candidateFeatures =
         candidateSource && candidatePercent
           ? buildPercentFeatures({
@@ -296,11 +288,19 @@ export async function ingestFeeds(
         percentModelDirty = true;
       }
 
-      let finalPercent: number | null = null;
-      let percentVerified = false;
-      if (computedPercent !== null && computedPercent > 0 && computedPercent < 100) {
-        finalPercent = computedPercent;
-        percentVerified = true;
+      const explicitPercent = candidateSource ? candidatePercent : null;
+      const verifiedPercent =
+        explicitPercent !== null &&
+        computedPercent !== null &&
+        Math.abs(explicitPercent - computedPercent) <= percentTolerance
+          ? computedPercent
+          : null;
+      const percentVerified = verifiedPercent !== null;
+      const finalPercent = percentVerified ? verifiedPercent : null;
+
+      if (!existing && !percentVerified) {
+        report.skipped += 1;
+        continue;
       }
 
       if (!existing && finalPercent !== null && finalPercent < minPercent) {

@@ -27,7 +27,8 @@ type ScrapeResult = {
   price: string;
   siteName: string;
   percentOff?: number | null;
-  percentSource?: "computed" | "structured" | "text" | null;
+  percentSource?: "structured" | "text" | null;
+  percentComputed?: number | null;
   prices?: { list: number | null; current: number | null } | null;
 };
 
@@ -132,9 +133,13 @@ export async function scrapeOG(url: string, options: ScrapeOptions = {}): Promis
   const siteName = meta("og:site_name") || safeSiteName(url);
 
   const prices = extractAmazonPrices(html);
-  const percentSignal = extractAmazonPercentSignal(html, prices);
-  const percentOff = percentSignal?.value ?? null;
-  const percentSource = percentSignal?.source ?? null;
+  const explicitPercent = extractAmazonExplicitPercent(html);
+  const percentOff = explicitPercent?.value ?? null;
+  const percentSource = explicitPercent?.source ?? null;
+  const percentComputed =
+    prices?.list && prices.current
+      ? Math.round(((prices.list - prices.current) / prices.list) * 100)
+      : null;
   if (prices?.current) {
     price = formatPriceValue(prices.current);
   } else if (!price && prices?.list) {
@@ -152,21 +157,14 @@ export async function scrapeOG(url: string, options: ScrapeOptions = {}): Promis
     siteName,
     percentOff,
     percentSource,
+    percentComputed,
     prices: prices ?? null,
   };
 }
 
-function extractAmazonPercentSignal(
-  html: string,
-  prices: { list: number | null; current: number | null } | null
-): { value: number; source: "computed" | "structured" | "text" } | null {
-  if (prices?.list && prices.current) {
-    const percent = Math.round(((prices.list - prices.current) / prices.list) * 100);
-    if (Number.isFinite(percent) && percent >= 5 && percent < 100) {
-      return { value: percent, source: "computed" };
-    }
-  }
-
+function extractAmazonExplicitPercent(
+  html: string
+): { value: number; source: "structured" | "text" } | null {
   const structuredPatterns: RegExp[] = [
     /"savingsPercentage"\s*:\s*"?(\d{1,2})"?/i,
     /"savingPercent"\s*:\s*"?(\d{1,2})"?/i,

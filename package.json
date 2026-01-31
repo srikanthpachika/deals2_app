@@ -12,6 +12,7 @@
     "seed": "node --loader ts-node/esm scripts/seed.ts",
     "ingest": "tsx scripts/ingestFeeds.ts",
     "ingest:watch": "tsx scripts/ingestWatch.ts",
+    "sync:percent": "tsx scripts/syncAmazonDeals.ts",
     "images:backfill": "tsx scripts/backfillImages.ts"
   },
   "dependencies": {

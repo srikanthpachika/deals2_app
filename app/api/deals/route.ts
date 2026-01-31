@@ -10,6 +10,8 @@ import {
 import { getDealCreatedAtCutoff, getDealExpiresAt } from '@/lib/dealExpiry';
 import { maybeIngestFeeds } from '@/lib/autoIngest';
 import { getDailyLimit } from '@/lib/ingestConfig';
+import { scrapeOG } from '@/utils/scrape';
+import { getPercentMatchTolerance } from '@/lib/percentModel';
 
 function isToday(d: Date) {
   const now = new Date();
@@ -24,6 +26,8 @@ export async function GET() {
     where: {
       approved: true,
       url: { startsWith: 'https://www.amazon.com/dp/' },
+      percentVerified: true,
+      percentOff: { not: null },
       OR: [
         { expiresAt: { gt: now } },
         { createdAt: { gte: cutoff } },
@@ -59,6 +63,33 @@ export async function POST(req: Request) {
   const normalized = normalizeDealTitle(title, description);
   const normalizedDescription = normalizeDealDescription(description, normalized.extras);
   const displayPrice = getDisplayPrice(title, description, price);
+  let percentOff: number | null = null;
+  let percentVerified = false;
+
+  try {
+    const scraped = await scrapeOG(normalizedUrl);
+    const explicitPercent =
+      scraped.percentOff && scraped.percentOff > 0 && scraped.percentOff < 100
+        ? scraped.percentOff
+        : null;
+    const computedPercent =
+      scraped.percentComputed &&
+      scraped.percentComputed > 0 &&
+      scraped.percentComputed < 100
+        ? scraped.percentComputed
+        : null;
+    const tolerance = getPercentMatchTolerance();
+    if (
+      explicitPercent !== null &&
+      computedPercent !== null &&
+      Math.abs(explicitPercent - computedPercent) <= tolerance
+    ) {
+      percentOff = computedPercent;
+      percentVerified = true;
+    }
+  } catch {
+    // ignore scrape failures for admin saves
+  }
 
   // Enforce < 50 deals per day
   const today = new Date();
@@ -86,7 +117,8 @@ export async function POST(req: Request) {
         image,
         description: normalizedDescription || null,
         source: source || 'amazon.com',
-        percentOff: null,
+        percentOff,
+        percentVerified,
         approved: true,
         expiresAt: getDealExpiresAt(),
       }

@@ -22,7 +22,13 @@ export default async function DealPage({ params }: { params: { id: string } }) {
     ? deal.createdAt < cutoff && (!deal.expiresAt || deal.expiresAt <= now)
     : true;
 
-  if (!deal || expired || !normalizeAmazonProductUrl(deal.url)) {
+  if (
+    !deal ||
+    expired ||
+    !normalizeAmazonProductUrl(deal.url) ||
+    !deal.percentVerified ||
+    !deal.percentOff
+  ) {
     return (
       <div className="page">
         <div className="card empty-state">

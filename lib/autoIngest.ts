@@ -59,6 +59,8 @@ async function shouldIngest(staleMinutes: number, minLiveDeals: number): Promise
       image: { not: null },
       price: { not: null },
       NOT: { price: "" },
+      percentVerified: true,
+      percentOff: { not: null },
     },
     orderBy: { createdAt: "desc" },
     select: { createdAt: true },
@@ -72,6 +74,8 @@ async function shouldIngest(staleMinutes: number, minLiveDeals: number): Promise
       image: { not: null },
       price: { not: null },
       NOT: { price: "" },
+      percentVerified: true,
+      percentOff: { not: null },
     },
   });
   if (liveCount < minLiveDeals) return true;
