@@ -1,7 +1,8 @@
 // prisma/schema.prisma
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "postgresql"
+
 }
 
 datasource db {
@@ -15,17 +16,9 @@ model Deal {
   url         String   @unique
   source      String?
   price       String?
-  percentOff  Int?
   image       String?
   description String?
   createdAt   DateTime @default(now())
   expiresAt   DateTime?
   approved    Boolean  @default(false)
-}
-
-model Subscriber {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  source    String?
-  createdAt DateTime @default(now())
 }

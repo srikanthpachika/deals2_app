@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import {
+  getDisplayPrice,
   normalizeAmazonProductUrl,
   normalizeDealDescription,
   normalizeDealTitle,
@@ -44,8 +45,8 @@ export default async function DealPage({ params }: { params: { id: string } }) {
     deal.description,
     normalized.extras
   );
-  const displayPrice = deal.price ?? null;
-  const displayPercent = deal.percentOff ?? normalized.percentOff ?? null;
+  const displayPrice = getDisplayPrice(deal.title, deal.description, deal.price);
+  const displayPercent = deal.percentOff ?? null;
   const displayTitle = displayPercent
     ? `${normalized.title} - ${displayPercent}% off`
     : normalized.title;
@@ -55,25 +56,23 @@ export default async function DealPage({ params }: { params: { id: string } }) {
   return (
     <div className="page">
       <header className="page-header">
-        <div className="page-header__row">
+        <div>
           <Link href="/" className="btn btn--soft btn--back">
             Back to deals
           </Link>
-          <a
-            href={affiliateUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn--primary"
-          >
-            Buy on Amazon
-          </a>
-        </div>
-        <div className="page-header__content">
           <h1 className="page-title">{displayTitle}</h1>
           {deal.source ? (
             <p className="page-subtitle">Source: {deal.source}</p>
           ) : null}
         </div>
+        <a
+          href={affiliateUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn--primary"
+        >
+          Buy on Amazon
+        </a>
       </header>
 
       <section className="deal-detail">
