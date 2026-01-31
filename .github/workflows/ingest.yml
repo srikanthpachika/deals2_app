@@ -1,0 +1,29 @@
+name: Ingest Deals
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger ingest endpoint
+        env:
+          INGEST_URL: ${{ secrets.INGEST_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          if [ -z "$INGEST_URL" ]; then
+            echo "INGEST_URL secret is required" >&2
+            exit 1
+          fi
+          if [ -z "$ADMIN_TOKEN" ]; then
+            echo "ADMIN_TOKEN secret is required" >&2
+            exit 1
+          fi
+          curl -sS -X GET "$INGEST_URL" \
+            -H "x-admin-token: $ADMIN_TOKEN" \
+            -H "user-agent: github-actions" \
+            -o /tmp/ingest.json
+          cat /tmp/ingest.json
