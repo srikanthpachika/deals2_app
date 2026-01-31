@@ -27,6 +27,8 @@ type ScrapeResult = {
   price: string;
   siteName: string;
   percentOff?: number | null;
+  percentSource?: "computed" | "structured" | "text" | null;
+  prices?: { list: number | null; current: number | null } | null;
 };
 
 export async function scrapeOG(url: string, options: ScrapeOptions = {}): Promise<ScrapeResult> {
@@ -129,8 +131,10 @@ export async function scrapeOG(url: string, options: ScrapeOptions = {}): Promis
 
   const siteName = meta("og:site_name") || safeSiteName(url);
 
-  const percentOff = extractAmazonPercentOff(html);
   const prices = extractAmazonPrices(html);
+  const percentSignal = extractAmazonPercentSignal(html, prices);
+  const percentOff = percentSignal?.value ?? null;
+  const percentSource = percentSignal?.source ?? null;
   if (prices?.current) {
     price = formatPriceValue(prices.current);
   } else if (!price && prices?.list) {
@@ -140,28 +144,55 @@ export async function scrapeOG(url: string, options: ScrapeOptions = {}): Promis
     if (Number.isFinite(parsed)) price = formatPriceValue(parsed);
   }
 
-  return { title, description, image, price, siteName, percentOff };
+  return {
+    title,
+    description,
+    image,
+    price,
+    siteName,
+    percentOff,
+    percentSource,
+    prices: prices ?? null,
+  };
 }
 
-function extractAmazonPercentOff(html: string): number | null {
-  const patterns: RegExp[] = [
+function extractAmazonPercentSignal(
+  html: string,
+  prices: { list: number | null; current: number | null } | null
+): { value: number; source: "computed" | "structured" | "text" } | null {
+  if (prices?.list && prices.current) {
+    const percent = Math.round(((prices.list - prices.current) / prices.list) * 100);
+    if (Number.isFinite(percent) && percent >= 5 && percent < 100) {
+      return { value: percent, source: "computed" };
+    }
+  }
+
+  const structuredPatterns: RegExp[] = [
     /"savingsPercentage"\s*:\s*"?(\d{1,2})"?/i,
-    /"savingPercent"\s*:\s*"?(-?\d{1,2})"?/i,
+    /"savingPercent"\s*:\s*"?(\d{1,2})"?/i,
+  ];
+
+  for (const pattern of structuredPatterns) {
+    const match = html.match(pattern);
+    if (!match) continue;
+    const value = Number(match[1]);
+    if (Number.isFinite(value) && value >= 5 && value < 100) {
+      return { value, source: "structured" };
+    }
+  }
+
+  const textPatterns: RegExp[] = [
     /(\d{1,2})\s?%\s*off/i,
     /Save\s*(\d{1,2})\s?%/i,
   ];
 
-  for (const pattern of patterns) {
+  for (const pattern of textPatterns) {
     const match = html.match(pattern);
     if (!match) continue;
     const value = Number(match[1]);
-    if (Number.isFinite(value) && value >= 5 && value < 100) return value;
-  }
-
-  const prices = extractAmazonPrices(html);
-  if (prices?.list && prices.current) {
-    const percent = Math.round(((prices.list - prices.current) / prices.list) * 100);
-    if (Number.isFinite(percent) && percent >= 5 && percent < 100) return percent;
+    if (Number.isFinite(value) && value >= 5 && value < 100) {
+      return { value, source: "text" };
+    }
   }
 
   return null;

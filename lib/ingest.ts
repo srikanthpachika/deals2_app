@@ -158,6 +158,8 @@ export async function ingestFeeds(
       let image: string | null = null;
       let sourceLabel = "amazon.com";
       let scrapedPercent: number | null = null;
+      let scrapedPercentSource: "computed" | "structured" | "text" | null = null;
+      let scrapedPrices: { list: number | null; current: number | null } | null = null;
 
       if (scrapedCount < maxScrape) {
         scrapedCount += 1;
@@ -174,6 +176,8 @@ export async function ingestFeeds(
           if (og.percentOff && og.percentOff > 0) {
             scrapedPercent = og.percentOff;
           }
+          scrapedPercentSource = og.percentSource ?? null;
+          scrapedPrices = og.prices ?? null;
         } catch {
           report.notes.push(`Scrape failed: ${url}`);
         }
@@ -192,17 +196,9 @@ export async function ingestFeeds(
       if (description) {
         description = trimText(description, 280);
       }
-      const fallbackPrice = price ? null : extractPrice(`${rawTitle} ${rawDescription}`);
-      const displayPrice = price ?? fallbackPrice;
       const postScore = scoreDeal(`${rawTitle} ${rawDescription}`);
-      const percentOff = scrapedPercent ?? normalized.percentOff;
 
       if (minScore > 0 && postScore < minScore) {
-        report.skipped += 1;
-        continue;
-      }
-
-      if (percentOff !== null && percentOff < minPercent) {
         report.skipped += 1;
         continue;
       }
@@ -227,19 +223,49 @@ export async function ingestFeeds(
 
       const existing = await prisma.deal.findUnique({
         where: { url },
-        select: { id: true },
+        select: { id: true, price: true, percentOff: true },
       });
+
+      const scrapedCurrent = scrapedPrices?.current ?? null;
+      const scrapedPrice = scrapedCurrent ? formatPriceValue(scrapedCurrent) : null;
+      const ogPrice = price ? getDisplayPrice(null, null, price) : null;
+      const fallbackPrice = extractPrice(`${rawTitle} ${rawDescription}`);
+
+      let finalPrice = existing?.price ?? null;
+      if (scrapedPrice) {
+        finalPrice = scrapedPrice;
+      } else if (!finalPrice && ogPrice) {
+        finalPrice = ogPrice;
+      } else if (!finalPrice && fallbackPrice) {
+        finalPrice = fallbackPrice;
+      }
+
+      const highConfidencePercent =
+        scrapedPercent &&
+        (scrapedPercentSource === "computed" || scrapedPercentSource === "structured")
+          ? scrapedPercent
+          : null;
+      let finalPercent = existing?.percentOff ?? null;
+      if (highConfidencePercent !== null) {
+        finalPercent = highConfidencePercent;
+      }
+
+      if (!existing && finalPercent !== null && finalPercent < minPercent) {
+        report.skipped += 1;
+        continue;
+      }
+
       if (existing) {
         try {
           await prisma.deal.update({
             where: { url },
             data: {
               title,
-              price: displayPrice || null,
+              price: finalPrice || null,
               image: image || null,
               description: description || null,
               source: sourceLabel || null,
-              percentOff,
+              percentOff: finalPercent,
               expiresAt: getDealExpiresAt(item.publishedAt, now),
             },
           });
@@ -261,11 +287,11 @@ export async function ingestFeeds(
           data: {
             title,
             url,
-            price: displayPrice || null,
+            price: finalPrice || null,
             image: image || null,
             description: description || null,
             source: sourceLabel || null,
-            percentOff,
+            percentOff: finalPercent,
             approved: true,
             expiresAt: getDealExpiresAt(item.publishedAt, now),
           },
@@ -279,6 +305,13 @@ export async function ingestFeeds(
   }
 
   return report;
+}
+
+function formatPriceValue(value: number): string {
+  const rounded = Math.round(value * 100) / 100;
+  const cents = Math.round(rounded * 100) % 100;
+  const formatted = cents === 0 ? rounded.toFixed(0) : rounded.toFixed(2);
+  return `$${formatted}`;
 }
 
 const FETCH_HEADERS = {
