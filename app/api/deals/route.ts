@@ -35,13 +35,14 @@ export async function GET() {
     const normalized = normalizeDealTitle(item.title, item.description);
     const description = normalizeDealDescription(item.description, normalized.extras);
     const displayPrice = getDisplayPrice(item.title, item.description, item.price);
-    const displayPercent = item.percentOff ?? null;
+    const displayPercent = item.percentVerified ? item.percentOff ?? null : null;
     return {
       ...item,
       title: normalized.title,
       description,
       price: displayPrice,
       percentOff: displayPercent,
+      percentVerified: item.percentVerified ?? false,
       url: withAmazonAffiliateTag(item.url),
     };
   });

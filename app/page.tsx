@@ -53,6 +53,7 @@ export default async function Home() {
       source: deal.source,
       description,
       percentOff: deal.percentOff ?? null,
+      percentVerified: deal.percentVerified ?? false,
       createdAt: deal.createdAt.toISOString(),
       categoryId: category.id,
       categoryLabel: category.label,
@@ -249,7 +250,7 @@ export default async function Home() {
                     <div className="featured-card__body">
                       <span className="featured-card__title">{deal.title}</span>
                       <div className="featured-card__meta">
-                        {deal.percentOff ? (
+                        {deal.percentVerified && deal.percentOff ? (
                           <span className="tag tag--percent tag--tight">
                             {deal.percentOff}% off
                           </span>

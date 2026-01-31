@@ -13,6 +13,7 @@ export interface DealProps {
   image?: string | null;
   price?: string | null;
   percentOff?: number | null;
+  percentVerified?: boolean | null;
   source?: string | null;
   description?: string | null;
   createdAt: string;
@@ -37,7 +38,7 @@ export default function DealCard({
     deal.description,
     normalized.extras
   );
-  const displayPercent = deal.percentOff ?? null;
+  const displayPercent = deal.percentVerified ? deal.percentOff ?? null : null;
   const displayTitle = displayPercent
     ? `${normalized.title} - ${displayPercent}% off`
     : normalized.title;

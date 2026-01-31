@@ -6,10 +6,8 @@ import { getDealExpiresAt } from "./dealExpiry";
 import { getIngestDefaults, getMinDealScore, getMinPercentOff } from "./ingestConfig";
 import {
   buildPercentFeatures,
-  getPercentConfidenceThreshold,
   getPercentMatchTolerance,
   loadPercentModel,
-  predictPercentConfidence,
   savePercentModel,
   trainPercentModel,
 } from "./percentModel";
@@ -72,7 +70,6 @@ export async function ingestFeeds(
   let percentModel = await loadPercentModel();
   let percentModelDirty = false;
   const percentTolerance = getPercentMatchTolerance();
-  const percentThreshold = getPercentConfidenceThreshold();
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -300,13 +297,10 @@ export async function ingestFeeds(
       }
 
       let finalPercent: number | null = null;
+      let percentVerified = false;
       if (computedPercent !== null && computedPercent > 0 && computedPercent < 100) {
         finalPercent = computedPercent;
-      } else if (candidatePercent && candidateSource && candidateFeatures) {
-        const confidence = predictPercentConfidence(percentModel, candidateFeatures);
-        if (confidence >= percentThreshold) {
-          finalPercent = candidatePercent;
-        }
+        percentVerified = true;
       }
 
       if (!existing && finalPercent !== null && finalPercent < minPercent) {
@@ -325,6 +319,7 @@ export async function ingestFeeds(
               description: description || null,
               source: sourceLabel || null,
               percentOff: finalPercent,
+              percentVerified,
               expiresAt: getDealExpiresAt(item.publishedAt, now),
             },
           });
@@ -351,6 +346,7 @@ export async function ingestFeeds(
             description: description || null,
             source: sourceLabel || null,
             percentOff: finalPercent,
+            percentVerified,
             approved: true,
             expiresAt: getDealExpiresAt(item.publishedAt, now),
           },

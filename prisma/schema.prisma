@@ -16,6 +16,7 @@ model Deal {
   source      String?
   price       String?
   percentOff  Int?
+  percentVerified Boolean @default(false)
   image       String?
   description String?
   createdAt   DateTime @default(now())

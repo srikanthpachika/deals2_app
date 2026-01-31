@@ -46,7 +46,7 @@ export default async function DealPage({ params }: { params: { id: string } }) {
     normalized.extras
   );
   const displayPrice = getDisplayPrice(deal.title, deal.description, deal.price);
-  const displayPercent = deal.percentOff ?? null;
+  const displayPercent = deal.percentVerified ? deal.percentOff ?? null : null;
   const displayTitle = displayPercent
     ? `${normalized.title} - ${displayPercent}% off`
     : normalized.title;
