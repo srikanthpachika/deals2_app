@@ -5,6 +5,15 @@ import { FEED_SOURCES } from "./ingestSources";
 import { getDealExpiresAt } from "./dealExpiry";
 import { getIngestDefaults, getMinDealScore, getMinPercentOff } from "./ingestConfig";
 import {
+  buildPercentFeatures,
+  getPercentConfidenceThreshold,
+  getPercentMatchTolerance,
+  loadPercentModel,
+  predictPercentConfidence,
+  savePercentModel,
+  trainPercentModel,
+} from "./percentModel";
+import {
   cleanUrl,
   extractAmazonUrl,
   extractPrice,
@@ -60,6 +69,10 @@ export async function ingestFeeds(
   const maxResolve = options.maxResolve ?? defaults.maxResolve;
   const minScore = getMinDealScore();
   const minPercent = getMinPercentOff();
+  let percentModel = await loadPercentModel();
+  let percentModelDirty = false;
+  const percentTolerance = getPercentMatchTolerance();
+  const percentThreshold = getPercentConfidenceThreshold();
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -196,6 +209,41 @@ export async function ingestFeeds(
       if (description) {
         description = trimText(description, 280);
       }
+      const fallbackPrice = extractPrice(`${rawTitle} ${rawDescription}`);
+      const computedPercent =
+        scrapedPrices?.list &&
+        scrapedPrices.current &&
+        scrapedPrices.list > scrapedPrices.current
+          ? Math.round(
+              ((scrapedPrices.list - scrapedPrices.current) / scrapedPrices.list) * 100
+            )
+          : null;
+      const candidateFromScrape =
+        scrapedPercentSource && scrapedPercentSource !== "computed"
+          ? scrapedPercent
+          : null;
+      const candidateFromText = normalized.percentOff ?? null;
+      const candidatePercentRaw = candidateFromScrape ?? candidateFromText;
+      const candidatePercent =
+        candidatePercentRaw && candidatePercentRaw > 0 && candidatePercentRaw < 100
+          ? candidatePercentRaw
+          : null;
+      const candidateSource: "structured" | "text" | null =
+        candidateFromScrape && scrapedPercentSource && scrapedPercentSource !== "computed"
+          ? scrapedPercentSource
+          : candidateFromText
+          ? "text"
+          : null;
+      const candidateFeatures =
+        candidateSource && candidatePercent
+          ? buildPercentFeatures({
+              source: candidateSource,
+              percent: candidatePercent,
+              hasList: Boolean(scrapedPrices?.list),
+              hasCurrent: Boolean(scrapedPrices?.current),
+              hasPrice: Boolean(price || fallbackPrice || scrapedPrices?.current),
+            })
+          : null;
       const postScore = scoreDeal(`${rawTitle} ${rawDescription}`);
 
       if (minScore > 0 && postScore < minScore) {
@@ -229,7 +277,6 @@ export async function ingestFeeds(
       const scrapedCurrent = scrapedPrices?.current ?? null;
       const scrapedPrice = scrapedCurrent ? formatPriceValue(scrapedCurrent) : null;
       const ogPrice = price ? getDisplayPrice(null, null, price) : null;
-      const fallbackPrice = extractPrice(`${rawTitle} ${rawDescription}`);
 
       let finalPrice = existing?.price ?? null;
       if (scrapedPrice) {
@@ -240,14 +287,26 @@ export async function ingestFeeds(
         finalPrice = fallbackPrice;
       }
 
-      const highConfidencePercent =
-        scrapedPercent &&
-        (scrapedPercentSource === "computed" || scrapedPercentSource === "structured")
-          ? scrapedPercent
-          : null;
-      let finalPercent = existing?.percentOff ?? null;
-      if (highConfidencePercent !== null) {
-        finalPercent = highConfidencePercent;
+      if (
+        computedPercent !== null &&
+        candidatePercent !== null &&
+        candidateSource &&
+        candidateFeatures
+      ) {
+        const diff = Math.abs(candidatePercent - computedPercent);
+        const label: 0 | 1 = diff <= percentTolerance ? 1 : 0;
+        percentModel = trainPercentModel(percentModel, candidateFeatures, label);
+        percentModelDirty = true;
+      }
+
+      let finalPercent: number | null = null;
+      if (computedPercent !== null && computedPercent > 0 && computedPercent < 100) {
+        finalPercent = computedPercent;
+      } else if (candidatePercent && candidateSource && candidateFeatures) {
+        const confidence = predictPercentConfidence(percentModel, candidateFeatures);
+        if (confidence >= percentThreshold) {
+          finalPercent = candidatePercent;
+        }
       }
 
       if (!existing && finalPercent !== null && finalPercent < minPercent) {
@@ -302,6 +361,10 @@ export async function ingestFeeds(
         report.notes.push(`Create failed: ${url}`);
       }
     }
+  }
+
+  if (percentModelDirty) {
+    await savePercentModel(percentModel);
   }
 
   return report;

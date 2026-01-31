@@ -29,3 +29,11 @@ model Subscriber {
   source    String?
   createdAt DateTime @default(now())
 }
+
+model PercentModel {
+  id        Int      @id @default(autoincrement())
+  weights   Json
+  bias      Float    @default(0)
+  samples   Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
