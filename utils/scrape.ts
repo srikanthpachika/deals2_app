@@ -39,7 +39,11 @@ export async function scrapeOG(url: string, options: ScrapeOptions = {}): Promis
 
   let html = "";
   try {
-    const res = await fetch(url, {
+    const proxyTemplate = process.env.SCRAPE_PROXY_TEMPLATE;
+    const fetchUrl = proxyTemplate
+      ? proxyTemplate.replace("{{url}}", encodeURIComponent(url))
+      : url;
+    const res = await fetch(fetchUrl, {
       headers: {
         // Many retailers (incl. Amazon) change output based on UA & accept
         "user-agent":
@@ -62,6 +66,8 @@ export async function scrapeOG(url: string, options: ScrapeOptions = {}): Promis
       price: "",
       siteName: safeSiteName(url),
       percentOff: null,
+      percentComputed: null,
+      percentSource: null,
     };
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
@@ -75,6 +81,21 @@ export async function scrapeOG(url: string, options: ScrapeOptions = {}): Promis
       price: "",
       siteName: safeSiteName(url),
       percentOff: null,
+      percentComputed: null,
+      percentSource: null,
+    };
+  }
+
+  if (looksLikeCaptcha(html)) {
+    return {
+      title: url,
+      description: "",
+      image: "",
+      price: "",
+      siteName: safeSiteName(url),
+      percentOff: null,
+      percentComputed: null,
+      percentSource: null,
     };
   }
 
@@ -194,6 +215,15 @@ function extractAmazonExplicitPercent(
   }
 
   return null;
+}
+
+function looksLikeCaptcha(html: string): boolean {
+  if (!html) return false;
+  return (
+    /captcha/i.test(html) ||
+    /enter the characters/i.test(html) ||
+    /type the characters you see/i.test(html)
+  );
 }
 
 function extractAmazonPrices(html: string): { list: number | null; current: number | null } | null {
